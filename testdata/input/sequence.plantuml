@@ -1,0 +1,11 @@
+@startuml
+title Login flow
+actor User
+participant Web
+participant API
+User -> Web: open /login
+Web -> API: POST /session
+API --> Web: token
+Web --> User: dashboard
+note over API: verifies credentials
+@enduml

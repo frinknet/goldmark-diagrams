@@ -1,0 +1,12 @@
+digraph architecture {
+  rankdir=LR
+  node [shape=box]
+  subgraph cluster_edge {
+    label="Edge"
+    proxy [label="Reverse proxy"]
+  }
+  app [label="App server", shape=cylinder]
+  db [label="SQLite", shape=diamond]
+  proxy -> app [label="http"]
+  app -> db [label="sql"]
+}

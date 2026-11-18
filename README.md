@@ -1,0 +1,168 @@
+# goldmark-diagrams
+
+A 100% pure-Go [Goldmark](https://github.com/yuin/goldmark) extension that compiles
+fenced diagram and chart code blocks into a single, standardized, responsive,
+CSS-interactive `<svg>` output, with optional `data-*` hooks for server-backed
+interactivity (Kanban card moves, chart drill-downs).
+
+See [`spec.md`](./spec.md) for the authoritative engineering specification and
+[`BACKLOG.md`](./BACKLOG.md) for the known gap between the two.
+
+## Status
+
+Implementing and covered by tests: the three engine adapters, the DOT and
+PlantUML transpilers, the normalizer with its shared `data-*` hook vocabulary and
+`--gm-*` palette, the cache, the error cards, the reference stylesheet, and
+golden fixtures for Kanban, Mindmap, Venn, Gantt, GitGraph, flowchart, D2 ERD,
+ECharts bar/pie, PlantUML sequence, and Graphviz DOT.
+Caddy integration and the interactive database demo live outside this repository;
+see [`BACKLOG.md`](./BACKLOG.md).
+
+## Core constraints
+
+1. **Pure Go only** (`CGO_ENABLED=0`). No CGo, no WASM/wazero, no external CLI
+   binaries (`mmdc`, `plantuml.jar`, `dot`), no Node/Java runtimes, no headless browsers.
+2. **Single `<svg>` output contract.** Every supported fenced block renders into a
+   normalized `<figure class="gm-diagram">` wrapping an inline `<svg viewBox="...">`.
+   Never emits `<canvas>`, `<img>`, or inline `<script>`.
+3. **Never-fail markdown conversion.** Invalid syntax or layout timeouts never
+   break `markdown.Convert()`; errors render into an inline styled `<svg>` error card.
+4. **CSS-first interactivity.** SVGs emit predictable `data-*` attributes and
+   `--gm-*` CSS custom properties so hover dimming, animated flow lines, and
+   dark/light theming work in pure CSS.
+
+## Engines
+
+| Fence language | Parser / preprocessor | Engine |
+| --- | --- | --- |
+| `mermaid`, `mmd` | pass-through | `pele-go` (33 Mermaid types) |
+| `d2` | pass-through | `terrastruct/d2` (dagre layout) |
+| `plantuml`, `puml` | `PlantUMLToD2()` / `PlantUMLToMermaid()` | `terrastruct/d2`, or `pele-go` for gantt and mindmap |
+| `dot`, `graphviz` | `DotToD2()` | `terrastruct/d2` |
+| `chart`, `echarts` | JSON / YAML | `go-analyze/charts` (SVG painter) |
+
+## Usage
+
+```go
+import (
+	"bytes"
+
+	"github.com/yuin/goldmark"
+	diagrams "github.com/goldmark-diagrams/goldmark-diagrams"
+)
+
+md := goldmark.New(goldmark.WithExtensions(diagrams.New()))
+
+var buf bytes.Buffer
+_ = md.Convert([]byte("```mermaid\nflowchart TD\n  A --> B\n```"), &buf)
+```
+
+Fence info strings accept `key=value` attributes, which are stamped onto the
+`<figure>` as `data-*` (`id=brd_123` becomes `data-id="brd_123"`):
+
+````
+```mermaid id=brd_123 theme=dark
+kanban
+  Todo
+    [Task one]
+```
+````
+
+Standalone rendering, for backend endpoints that re-render an interactive SVG
+after a database mutation:
+
+```go
+html, err := diagrams.RenderStandalone(ctx, "mermaid", kanbanSyntax, diagrams.WithID("brd_123"))
+```
+
+Serve the reference stylesheet at your own route:
+
+```go
+css := diagrams.DefaultCSS() // GET /_diagrams/css
+```
+
+### Options
+
+| Option | Default |
+| --- | --- |
+| `WithTheme("auto"｜"light"｜"dark"｜"neutral")` | `auto` |
+| `WithCache(cache)` | `NewMemoryLRU(512)` |
+| `WithErrorMode(mode)` | `ErrorSVGCard` |
+| `WithLanguages(langs...)` | every supported language |
+| `WithTimeout(d)` | `5s` |
+| `WithD2Layout("dagre")` | `dagre` (`elk` is rejected: it needs an external binary) |
+| `WithID(id)` | unset |
+
+`NewDiskCache(dir)` is also available for caches that survive restarts; each
+entry is written to `<sha256>.svg` atomically.
+
+### Server-SVG feedback loop
+
+Every primary element of every diagram type is stamped with the same hook
+vocabulary, so one client-side handler can address all of them:
+
+| Diagram | Hooks |
+| --- | --- |
+| `mermaid`, `mmd` | `data-item` + `data-role="node｜edge｜commit｜branch｜task｜slice｜point｜cluster｜venn-set｜venn-region"`, using pele's own ids |
+| `d2`, `dot`, `plantuml` | `data-item` + `data-role="shape"` (named from the shape's label) and `data-role="connection"` |
+| `chart`, `echarts` | `data-item` (the category label) + `data-series="0..7"` + `data-role="mark"` |
+| kanban | `data-column-id` + `data-role="column"`, `data-card-id` + `data-role="card"` |
+
+A thin delegated listener reads those attributes off the clicked element, POSTs
+the mutation, and swaps `figure.outerHTML` with the freshly rendered fragment, so
+all state stays in your database rather than in client-side stores.
+
+### One stylesheet for every diagram
+
+`DefaultCSS()` declares a single `--gm-*` palette (`--gm-bg`, `--gm-fg`,
+`--gm-muted`, `--gm-border`, `--gm-line`, `--gm-surface`, `--gm-surface-alt`,
+`--gm-accent`, `--gm-series-0` … `--gm-series-7`) and every engine's paint is
+mapped onto it, keeping the engine's own colour as the `var()` fallback:
+
+- Mermaid's `--pele-*` variables are aliased onto `--gm-*`.
+- D2's embedded palette rules are rewritten by role (`fill-N1..N7`, `fill-B*`).
+- Chart marks are rewritten to `var(--gm-series-N, <engine colour>)`.
+
+So one override themes all of them, and the dark palette follows
+`prefers-color-scheme` or an explicit `data-theme="dark"` on the fence:
+
+```css
+.gm-diagram { --gm-accent: #7c3aed; --gm-series-0: #7c3aed; }
+```
+
+## Repository layout
+
+```
+goldmark-diagrams/
+├── diagrams.go              # public options, New(), RenderStandalone(), DefaultCSS()
+├── extender.go              # goldmark.Extender, ASTTransformer, HTML node renderer
+├── normalizer.go            # responsive viewBox, data-* stamping, --gm-* mapping
+├── cache.go                 # SHA-256 MemoryLRU and DiskCache
+├── errors.go                # styled <svg> error card generator
+├── assets/diagrams.css      # embedded reference CSS (//go:embed)
+└── engines/
+    ├── router.go            # dispatches lang -> pele-go, d2, or go-analyze/charts
+    ├── pele.go              # pele-go SVG adapter
+    ├── d2.go                # terrastruct/d2 SVG adapter
+    ├── charts.go            # go-analyze/charts SVG adapter
+    └── transpilers/
+        ├── plantuml.go      # PlantUML -> D2, and gantt/mindmap -> Mermaid
+        └── dot.go           # Graphviz DOT -> D2
+```
+
+## Development
+
+All Go work runs in a container so the host toolchain stays clean:
+
+```sh
+docker run --rm -v caddy-sf-mod:/mod -v "$PWD":/src -w /src \
+  -e GOMODCACHE=/mod -e GOCACHE=/mod/gocache -e CGO_ENABLED=0 \
+  caddy:2.11.9-builder-alpine \
+  sh -c 'gofmt -l . && go vet -buildvcs=false ./... && go test -buildvcs=false ./...'
+```
+
+Requires Go 1.26+ (`pele-go` mandates it); the builder image ships Go 1.27.
+
+## License
+
+Not yet specified.

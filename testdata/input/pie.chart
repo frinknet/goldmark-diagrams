@@ -1,0 +1,6 @@
+{
+  "type": "pie",
+  "title": "Pets",
+  "labels": ["Dogs", "Cats", "Fish"],
+  "series": [[40, 30, 30]]
+}

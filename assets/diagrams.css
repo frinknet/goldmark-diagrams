@@ -1,0 +1,135 @@
+/* goldmark-diagrams reference stylesheet (diagrams.DefaultCSS()).
+   One palette, one set of hooks: every diagram type the extension emits is
+   mapped onto the --gm-* custom properties below, so theming an ECharts bar
+   chart, a D2 architecture diagram and a Mermaid kanban board is the same
+   three-line override. */
+
+.gm-diagram {
+  margin: 1.5rem 0;
+  overflow-x: auto;
+
+  /* The shared palette. Without this stylesheet each engine's own default is
+     used instead, because every mapped paint carries it as a var() fallback. */
+  --gm-bg: transparent;
+  --gm-fg: #1e293b;
+  --gm-muted: #64748b;
+  --gm-border: #cbd5e1;
+  --gm-line: #94a3b8;
+  --gm-surface: #ffffff;
+  --gm-surface-alt: #f1f5f9;
+  --gm-accent: #5470c6;
+  --gm-series-0: #5470c6;
+  --gm-series-1: #91cc75;
+  --gm-series-2: #fac858;
+  --gm-series-3: #ee6666;
+  --gm-series-4: #73c0de;
+  --gm-series-5: #3ba272;
+  --gm-series-6: #fc8452;
+  --gm-series-7: #9a60b4;
+
+  /* Error cards reuse the palette with their own accents. */
+  --gm-error-bg: #fef2f2;
+  --gm-error-border: #fca5a5;
+  --gm-error-fg: #b91c1c;
+}
+
+.gm-diagram-svg {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+}
+
+/* Dark palette: follows the reader's preference, or an explicit
+   data-theme="dark" from the fence info string. */
+@media (prefers-color-scheme: dark) {
+  .gm-diagram {
+    --gm-fg: #e2e8f0;
+    --gm-muted: #94a3b8;
+    --gm-border: #475569;
+    --gm-line: #64748b;
+    --gm-surface: #1e293b;
+    --gm-surface-alt: #334155;
+    --gm-accent: #73c0de;
+    --gm-error-bg: #450a0a;
+    --gm-error-border: #7f1d1d;
+    --gm-error-fg: #fca5a5;
+  }
+}
+
+.gm-diagram[data-theme="dark"] {
+  --gm-fg: #e2e8f0;
+  --gm-muted: #94a3b8;
+  --gm-border: #475569;
+  --gm-line: #64748b;
+  --gm-surface: #1e293b;
+  --gm-surface-alt: #334155;
+  --gm-accent: #73c0de;
+  --gm-error-bg: #450a0a;
+  --gm-error-border: #7f1d1d;
+  --gm-error-fg: #fca5a5;
+}
+
+/* Pure-CSS sibling dimming on hover, for every diagram type. The trailing :not()
+   keeps an item's own ancestors undimmed, because venn sets and clustered
+   Mermaid nodes legitimately nest inside one another. */
+.gm-diagram-svg:has([data-item]:hover) [data-item]:not(:hover):not(:has([data-item]:hover)) {
+  opacity: 0.35;
+  transition: opacity 150ms ease;
+}
+
+.gm-diagram-svg:has([data-card-id]:hover) [data-card-id]:not(:hover) {
+  opacity: 0.5;
+  transition: opacity 150ms ease;
+}
+
+.gm-diagram-svg [data-item]:hover,
+.gm-diagram-svg [data-card-id]:hover {
+  filter: brightness(1.08);
+  cursor: pointer;
+}
+
+/* Animated dashed flow connectors. */
+@keyframes gm-dash-flow {
+  to {
+    stroke-dashoffset: -24;
+  }
+}
+
+.gm-diagram-svg path[stroke-dasharray] {
+  animation: gm-dash-flow 1.2s linear infinite;
+}
+
+/* Server feedback loop: a click listener reads data-card-id/data-column-id and
+   POSTs the move, so the affordance is announced in CSS only. */
+.gm-diagram-svg [data-card-id] {
+  cursor: grab;
+}
+
+.gm-diagram-svg [data-card-id]:active {
+  cursor: grabbing;
+}
+
+/* Error cards are diagrams too. */
+.gm-diagram-error {
+  overflow: visible;
+}
+
+/* Hook reference for authors styling individual pieces:
+     [data-role="node|edge|cluster|commit|task|slice|point"]  (Mermaid)
+     [data-role="shape|connection"]                           (D2, DOT, PlantUML)
+     [data-role="mark"]  with [data-series="0".."7"]          (charts)
+     [data-role="column"] / [data-role="card"]                (kanban)
+   Per-series colour is already applied through --gm-series-N, so overriding the
+   palette above is normally all that is needed. */
+
+@media (prefers-reduced-motion: reduce) {
+  .gm-diagram-svg path[stroke-dasharray] {
+    animation: none;
+  }
+
+  .gm-diagram-svg:has([data-item]:hover) [data-item]:not(:hover):not(:has([data-item]:hover)),
+  .gm-diagram-svg:has([data-card-id]:hover) [data-card-id]:not(:hover) {
+    transition: none;
+  }
+}

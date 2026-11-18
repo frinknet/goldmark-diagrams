@@ -1,0 +1,16 @@
+direction: right
+
+orders: {
+  shape: sql_table
+  id: int {constraint: primary_key}
+  user_id: int
+  total: float
+}
+
+users: {
+  shape: sql_table
+  id: int {constraint: primary_key}
+  name: varchar
+}
+
+orders.user_id -> users.id
