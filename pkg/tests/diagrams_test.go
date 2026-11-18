@@ -1,26 +1,39 @@
-package diagrams
+package tests
 
 import (
 	"bytes"
 	"context"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"sync"
 	"testing"
 
-	"github.com/goldmark-diagrams/goldmark-diagrams/engines"
+	diagrams "github.com/goldmark-diagrams/goldmark-diagrams"
+	"github.com/goldmark-diagrams/goldmark-diagrams/pkg/engines"
 	"github.com/yuin/goldmark"
 )
+
+// repoRoot is the checkout root, three directories above this file, so the
+// golden fixtures are found whatever the working directory is.
+func repoRoot(t *testing.T) string {
+	t.Helper()
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("cannot locate the test source file")
+	}
+	return filepath.Dir(filepath.Dir(filepath.Dir(file)))
+}
 
 func meta(lang string, w, h float64) engines.Meta {
 	return engines.Meta{Lang: lang, Theme: "auto", Width: w, Height: h}
 }
 
-func mustMarkdown(t *testing.T, opts ...Option) goldmark.Markdown {
+func mustMarkdown(t *testing.T, opts ...diagrams.Option) goldmark.Markdown {
 	t.Helper()
-	return goldmark.New(goldmark.WithExtensions(New(opts...)))
+	return goldmark.New(goldmark.WithExtensions(diagrams.New(opts...)))
 }
 
 func convert(t *testing.T, md goldmark.Markdown, src string) (string, error) {
@@ -44,19 +57,19 @@ func assertCleanOutput(t *testing.T, out string) {
 }
 
 func TestNewReturnsExtender(t *testing.T) {
-	if New() == nil {
-		t.Fatal("New() returned nil")
+	if diagrams.New() == nil {
+		t.Fatal("diagrams.New() returned nil")
 	}
-	if len(SupportedLanguages()) == 0 {
-		t.Fatal("SupportedLanguages() is empty")
+	if len(diagrams.SupportedLanguages()) == 0 {
+		t.Fatal("diagrams.SupportedLanguages() is empty")
 	}
 }
 
 func TestDefaultCSSIsEmbedded(t *testing.T) {
-	css := DefaultCSS()
-	for _, want := range []string{".gm-diagram", ".gm-diagram-svg", "gm-dash-flow", "[data-card-id]"} {
+	css := diagrams.DefaultCSS()
+	for _, want := range []string{".svg-diagram", ".svg-diagram-svg", "gm-dash-flow", "[data-card-id]"} {
 		if !strings.Contains(css, want) {
-			t.Errorf("DefaultCSS() missing %q", want)
+			t.Errorf("diagrams.DefaultCSS() missing %q", want)
 		}
 	}
 }
@@ -69,7 +82,7 @@ func TestConvertMermaidFlowchart(t *testing.T) {
 	}
 	assertCleanOutput(t, out)
 	for _, want := range []string{
-		`<figure class="gm-diagram"`,
+		`<figure class="svg-diagram"`,
 		`data-lang="mermaid"`,
 		`data-engine="pele"`,
 		`data-theme="auto"`,
@@ -77,7 +90,7 @@ func TestConvertMermaidFlowchart(t *testing.T) {
 		`<svg`,
 		`viewBox="`,
 		`class="`,
-		`gm-diagram-svg`,
+		`svg-diagram-svg`,
 		`role="img"`,
 	} {
 		if !strings.Contains(out, want) {
@@ -92,7 +105,7 @@ func TestConvertLeavesOtherLanguagesAlone(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Convert: %v", err)
 	}
-	if strings.Contains(out, "gm-diagram") {
+	if strings.Contains(out, "svg-diagram") {
 		t.Errorf("non-diagram fence was intercepted:\n%s", out)
 	}
 	if !strings.Contains(out, `language-go`) {
@@ -101,12 +114,12 @@ func TestConvertLeavesOtherLanguagesAlone(t *testing.T) {
 }
 
 func TestWithLanguagesRestrictsInterception(t *testing.T) {
-	md := mustMarkdown(t, WithLanguages("d2"))
+	md := mustMarkdown(t, diagrams.WithLanguages("d2"))
 	out, err := convert(t, md, fence("mermaid", "flowchart TD\n A --> B"))
 	if err != nil {
 		t.Fatalf("Convert: %v", err)
 	}
-	if strings.Contains(out, "gm-diagram") {
+	if strings.Contains(out, "svg-diagram") {
 		t.Errorf("mermaid fence should be left alone when only d2 is enabled:\n%s", out)
 	}
 }
@@ -127,7 +140,7 @@ func TestNeverFailOnInvalidSyntax(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Convert must never fail: %v", err)
 			}
-			if !strings.Contains(out, "gm-diagram-error") {
+			if !strings.Contains(out, "svg-diagram-error") {
 				t.Errorf("expected an error card, got:\n%s", out)
 			}
 			assertCleanOutput(t, out)
@@ -139,7 +152,7 @@ func TestNeverFailOnInvalidSyntax(t *testing.T) {
 }
 
 func TestErrorModeCodeBlock(t *testing.T) {
-	md := mustMarkdown(t, WithErrorMode(ErrorCodeBlock))
+	md := mustMarkdown(t, diagrams.WithErrorMode(diagrams.ErrorCodeBlock))
 	out, err := convert(t, md, fence("mermaid", "flowchart TD\n  A[["))
 	if err != nil {
 		t.Fatalf("Convert: %v", err)
@@ -150,7 +163,7 @@ func TestErrorModeCodeBlock(t *testing.T) {
 }
 
 func TestErrorModeFail(t *testing.T) {
-	md := mustMarkdown(t, WithErrorMode(ErrorFail))
+	md := mustMarkdown(t, diagrams.WithErrorMode(diagrams.ErrorFail))
 	_, err := convert(t, md, fence("mermaid", "flowchart TD\n  A[["))
 	if err == nil {
 		t.Fatal("expected Convert to return the engine error")
@@ -170,6 +183,10 @@ func TestInfoAttributesStampTheFigure(t *testing.T) {
 		if !strings.Contains(out, want) {
 			t.Errorf("figure missing %q\n%s", want, out)
 		}
+	}
+	// The fence theme is the figure theme, not a second data-theme attribute.
+	if n := strings.Count(out, "data-theme="); n != 1 {
+		t.Errorf("expected exactly one data-theme attribute, got %d:\n%s", n, out)
 	}
 }
 
@@ -210,31 +227,31 @@ func TestEveryTypeCarriesTheSharedHooks(t *testing.T) {
 			name:    "mermaid",
 			lang:    "mermaid",
 			source:  "flowchart TD\n  A[Start] --> B[End]",
-			wantAll: []string{`data-item="A"`, `data-item="B"`, `data-role="node"`, `data-role="edge"`},
+			wantAll: []string{`data-item="A"`, `data-item="B"`, `data-role="node"`, `data-role="edge"`, `svg-node`, `svg-edge`},
 		},
 		{
 			name:    "d2",
 			lang:    "d2",
 			source:  "alpha -> beta",
-			wantAll: []string{`data-item="alpha"`, `data-item="beta"`, `data-role="shape"`, `data-role="connection"`},
+			wantAll: []string{`data-item="alpha"`, `data-item="beta"`, `data-role="shape"`, `data-role="connection"`, `svg-shape`, `svg-connection`},
 		},
 		{
 			name:    "dot",
 			lang:    "dot",
 			source:  "digraph { a -> b }",
-			wantAll: []string{`data-role="shape"`, `data-role="connection"`},
+			wantAll: []string{`data-role="shape"`, `data-role="connection"`, `svg-shape`, `svg-connection`},
 		},
 		{
 			name:    "plantuml",
 			lang:    "plantuml",
 			source:  "@startuml\nA -> B: hi\n@enduml",
-			wantAll: []string{`data-role="shape"`},
+			wantAll: []string{`data-role="shape"`, `svg-shape`},
 		},
 		{
 			name:    "chart",
 			lang:    "chart",
 			source:  `{"type":"bar","labels":["Mon","Tue"],"series":[[1,2]]}`,
-			wantAll: []string{`data-item="Mon"`, `data-item="Tue"`, `data-series="0"`, `data-role="mark"`},
+			wantAll: []string{`data-item="Mon"`, `data-item="Tue"`, `data-series="0"`, `data-role="mark"`, `svg-mark`, `svg-series-0`},
 		},
 	}
 	for _, tc := range cases {
@@ -245,7 +262,7 @@ func TestEveryTypeCarriesTheSharedHooks(t *testing.T) {
 				t.Fatalf("Convert: %v", err)
 			}
 			assertCleanOutput(t, out)
-			if strings.Contains(out, "gm-diagram-error") {
+			if strings.Contains(out, "svg-diagram-error") {
 				t.Fatalf("unexpected error card:\n%s", out)
 			}
 			for _, want := range tc.wantAll {
@@ -270,8 +287,11 @@ func TestChartsStampSeries(t *testing.T) {
 	if !strings.Contains(out, `data-item="a"`) || !strings.Contains(out, `data-item="b"`) {
 		t.Errorf("chart marks are not named by category:\n%s", out)
 	}
-	if !strings.Contains(out, `var(--gm-series-0,`) {
-		t.Errorf("chart fills are not mapped to --gm-series-*:\n%s", out)
+	if !strings.Contains(out, `var(--diagram-series-0,`) {
+		t.Errorf("chart fills are not mapped to --diagram-series-*:\n%s", out)
+	}
+	if !strings.Contains(out, `svg-mark`) || !strings.Contains(out, `svg-series-0`) {
+		t.Errorf("chart marks are not styled by a standard class:\n%s", out)
 	}
 }
 
@@ -282,11 +302,11 @@ func TestD2PaletteIsMappedToSharedVariables(t *testing.T) {
 		t.Fatalf("Convert: %v", err)
 	}
 	for _, want := range []string{
-		"var(--gm-bg,",
-		"var(--gm-fg,",
-		"var(--gm-border,",
-		"var(--gm-accent,",
-		"var(--gm-surface,",
+		"var(--diagram-bg,",
+		"var(--diagram-fg,",
+		"var(--diagram-border,",
+		"var(--diagram-accent,",
+		"var(--diagram-surface,",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("d2 palette not mapped: missing %q", want)
@@ -303,27 +323,27 @@ func TestPeleVariablesAliasTheSharedPalette(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Convert: %v", err)
 	}
-	if !strings.Contains(out, "--pele-fg:var(--gm-fg,") {
-		t.Errorf("pele variables are not aliased onto --gm-*:\n%s", out)
+	if !strings.Contains(out, "--pele-fg:var(--diagram-fg,") {
+		t.Errorf("pele variables are not aliased onto --diagram-*:\n%s", out)
 	}
 }
 
 func TestDefaultCSSDefinesThePalette(t *testing.T) {
-	css := DefaultCSS()
+	css := diagrams.DefaultCSS()
 	for _, want := range []string{
-		"--gm-fg:", "--gm-border:", "--gm-surface:",
-		"--gm-series-0:", "--gm-series-7:",
+		"--diagram-fg:", "--diagram-border:", "--diagram-surface:",
+		"--diagram-series-0:", "--diagram-series-7:",
 		"prefers-color-scheme: dark",
 		`[data-theme="dark"]`,
 	} {
 		if !strings.Contains(css, want) {
-			t.Errorf("DefaultCSS() missing %q", want)
+			t.Errorf("diagrams.DefaultCSS() missing %q", want)
 		}
 	}
 }
 
 func TestRenderStandaloneWithID(t *testing.T) {
-	out, err := RenderStandalone(context.Background(), "mermaid", "flowchart TD\n  A --> B", WithID("brd_123"))
+	out, err := diagrams.RenderStandalone(context.Background(), "mermaid", "flowchart TD\n  A --> B", diagrams.WithID("brd_123"))
 	if err != nil {
 		t.Fatalf("RenderStandalone: %v", err)
 	}
@@ -333,11 +353,11 @@ func TestRenderStandaloneWithID(t *testing.T) {
 }
 
 func TestRenderStandaloneRespectsErrorMode(t *testing.T) {
-	_, err := RenderStandalone(context.Background(), "mermaid", "flowchart TD\n  A[[", WithErrorMode(ErrorFail))
+	_, err := diagrams.RenderStandalone(context.Background(), "mermaid", "flowchart TD\n  A[[", diagrams.WithErrorMode(diagrams.ErrorFail))
 	if err == nil {
-		t.Fatal("expected an error with ErrorFail")
+		t.Fatal("expected an error with diagrams.ErrorFail")
 	}
-	if _, err := RenderStandalone(context.Background(), "mermaid", "flowchart TD\n  A[["); err != nil {
+	if _, err := diagrams.RenderStandalone(context.Background(), "mermaid", "flowchart TD\n  A[["); err != nil {
 		t.Fatalf("default mode must not fail: %v", err)
 	}
 }
@@ -345,17 +365,17 @@ func TestRenderStandaloneRespectsErrorMode(t *testing.T) {
 func TestRenderStandaloneWithCanceledContext(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	out, err := RenderStandalone(ctx, "mermaid", "flowchart TD\n  A --> B")
+	out, err := diagrams.RenderStandalone(ctx, "mermaid", "flowchart TD\n  A --> B")
 	if err != nil {
 		t.Fatalf("canceled render must not fail markdown: %v", err)
 	}
-	if !strings.Contains(out, "gm-diagram-error") {
+	if !strings.Contains(out, "svg-diagram-error") {
 		t.Errorf("expected an error card for a canceled render:\n%s", out)
 	}
 }
 
 func TestNormalizeSVGSynthesizesViewBox(t *testing.T) {
-	got, err := NormalizeSVG(`<?xml version="1.0"?><svg width="320px" height="200" xmlns="http://www.w3.org/2000/svg"><rect/></svg>`, meta("d2", 0, 0))
+	got, err := diagrams.NormalizeSVG(`<?xml version="1.0"?><svg width="320px" height="200" xmlns="http://www.w3.org/2000/svg"><rect/></svg>`, meta("d2", 0, 0))
 	if err != nil {
 		t.Fatalf("NormalizeSVG: %v", err)
 	}
@@ -371,13 +391,13 @@ func TestNormalizeSVGSynthesizesViewBox(t *testing.T) {
 }
 
 func TestNormalizeSVGRejectsNonSVG(t *testing.T) {
-	if _, err := NormalizeSVG("not a diagram", meta("d2", 0, 0)); err == nil {
+	if _, err := diagrams.NormalizeSVG("not a diagram", meta("d2", 0, 0)); err == nil {
 		t.Fatal("expected an error for input with no <svg>")
 	}
 }
 
 func TestNormalizeSVGLeavesStyleContentAlone(t *testing.T) {
-	got, err := NormalizeSVG(`<svg viewBox="0 0 10 10"><style>a{b:c}</style></svg>`, meta("d2", 10, 10))
+	got, err := diagrams.NormalizeSVG(`<svg viewBox="0 0 10 10"><style>a{b:c}</style></svg>`, meta("d2", 10, 10))
 	if err != nil {
 		t.Fatalf("NormalizeSVG: %v", err)
 	}
@@ -388,7 +408,7 @@ func TestNormalizeSVGLeavesStyleContentAlone(t *testing.T) {
 
 func TestCacheIsConsulted(t *testing.T) {
 	cache := &countingCache{data: map[string]string{}}
-	md := mustMarkdown(t, WithCache(cache))
+	md := mustMarkdown(t, diagrams.WithCache(cache))
 	src := fence("mermaid", "flowchart TD\n  A --> B")
 	for i := 0; i < 2; i++ {
 		if _, err := convert(t, md, src); err != nil {
@@ -404,7 +424,7 @@ func TestCacheIsConsulted(t *testing.T) {
 }
 
 func TestMemoryLRUEvicts(t *testing.T) {
-	c := NewMemoryLRU(2)
+	c := diagrams.NewMemoryLRU(2)
 	c.Set("a", "1")
 	c.Set("b", "2")
 	c.Set("c", "3")
@@ -422,7 +442,7 @@ func TestMemoryLRUEvicts(t *testing.T) {
 
 func TestDiskCacheRoundTrips(t *testing.T) {
 	dir := t.TempDir()
-	c := NewDiskCache(dir)
+	c := diagrams.NewDiskCache(dir)
 	if _, ok := c.Get("missing"); ok {
 		t.Error("expected a miss on an empty cache")
 	}
@@ -437,7 +457,8 @@ func TestDiskCacheRoundTrips(t *testing.T) {
 
 func TestGolden(t *testing.T) {
 	update := os.Getenv("UPDATE_GOLDEN") == "1"
-	inputs, err := filepath.Glob(filepath.Join("testdata", "input", "*"))
+	root := repoRoot(t)
+	inputs, err := filepath.Glob(filepath.Join(root, "testdata", "input", "*"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -458,7 +479,7 @@ func TestGolden(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Convert: %v", err)
 			}
-			golden := filepath.Join("testdata", "golden", name+".html")
+			golden := filepath.Join(root, "testdata", "golden", name+".html")
 			if update {
 				if err := os.MkdirAll(filepath.Dir(golden), 0o755); err != nil {
 					t.Fatal(err)

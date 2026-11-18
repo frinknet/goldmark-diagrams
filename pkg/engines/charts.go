@@ -116,7 +116,7 @@ func renderCharts(_ context.Context, meta Meta, source string) (*RenderResult, e
 	case "donut", "doughnut", "ring":
 		p, err = charts.DoughnutRender(firstSeries(spec), opts...)
 	case "radar":
-		p, err = charts.RadarRender(flatSeries(spec), radarIndicators(spec)...)
+		p, err = charts.RadarRender(flatSeries(spec), radarIndicators(spec, theme)...)
 	case "funnel":
 		p, err = charts.FunnelRender(firstSeries(spec), opts...)
 	case "candlestick", "candle", "k":
@@ -130,7 +130,15 @@ func renderCharts(_ context.Context, meta Meta, source string) (*RenderResult, e
 		if spec.Table == nil {
 			return nil, fmt.Errorf("chart type table requires a \"table\" object")
 		}
-		p, err = charts.TableRenderValues(spec.Table.Header, spec.Table.Rows)
+		// TableRenderValues drops the painter options, so it always answers PNG.
+		// TableOptionRenderDirect is the only path that can ask for SVG.
+		p, err = charts.TableOptionRenderDirect(charts.TableChartOption{
+			OutputFormat: charts.ChartOutputSVG,
+			Theme:        theme,
+			Width:        w,
+			Header:       spec.Table.Header,
+			Data:         spec.Table.Rows,
+		})
 	default:
 		return nil, fmt.Errorf("unsupported chart type %q", spec.Type)
 	}
@@ -207,10 +215,11 @@ func firstSeries(spec *chartSpec) []float64 {
 	return spec.Series[0]
 }
 
-func radarIndicators(spec *chartSpec) []charts.OptionFunc {
+func radarIndicators(spec *chartSpec, theme charts.ColorPalette) []charts.OptionFunc {
 	opts := []charts.OptionFunc{
 		charts.DimensionsOptionFunc(orDefault(spec.Width, 900), orDefault(spec.Height, 480)),
 		charts.SVGOutputOptionFunc(),
+		charts.ThemeOptionFunc(theme),
 	}
 	if len(spec.Names) > 0 {
 		opts = append(opts, charts.LegendLabelsOptionFunc(spec.Names))

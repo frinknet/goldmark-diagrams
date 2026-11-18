@@ -1,4 +1,7 @@
-package diagrams
+// Package cache holds the fragment cache used by the render pipeline: the
+// Cache contract, the in-memory LRU and on-disk implementations, and the
+// content-addressed key they are indexed by.
+package cache
 
 import (
 	"container/list"
@@ -10,9 +13,20 @@ import (
 	"sync"
 )
 
-// cacheKey applies the spec's content-addressed formula:
+// ModuleVersion participates in the content-addressed cache key, so bumping it
+// invalidates every cached fragment after a renderer change. The public
+// diagrams package re-exports it.
+const ModuleVersion = "v0.4.0"
+
+// Cache is a content-addressed store of normalized <figure> HTML fragments.
+type Cache interface {
+	Get(key string) (html string, ok bool)
+	Set(key string, html string)
+}
+
+// Key applies the spec's content-addressed formula:
 // sha256(moduleVersion ":" lang ":" theme ":" attrs ":" source).
-func cacheKey(lang, theme, attrs, source string) string {
+func Key(lang, theme, attrs, source string) string {
 	h := sha256.New()
 	for i, part := range []string{ModuleVersion, lang, theme, attrs, source} {
 		if i > 0 {
@@ -23,8 +37,8 @@ func cacheKey(lang, theme, attrs, source string) string {
 	return hex.EncodeToString(h.Sum(nil))
 }
 
-// shortHash is the 8-hex-digit digest stamped on <figure data-hash>.
-func shortHash(s string) string {
+// ShortHash is the 8-hex-digit digest stamped on <figure data-hash>.
+func ShortHash(s string) string {
 	sum := sha256.Sum256([]byte(s))
 	return hex.EncodeToString(sum[:])[:8]
 }

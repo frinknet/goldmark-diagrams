@@ -1,11 +1,15 @@
-package diagrams
+// Package extender wires the diagram renderer into Goldmark: a priority-100 AST
+// transformer that replaces diagram fences with pre-rendered blocks, and the
+// node renderer that emits them.
+package extender
 
 import (
 	"bytes"
 	"context"
 	"strings"
 
-	"github.com/goldmark-diagrams/goldmark-diagrams/engines"
+	"github.com/goldmark-diagrams/goldmark-diagrams/pkg/engines"
+	"github.com/goldmark-diagrams/goldmark-diagrams/pkg/render"
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/parser"
@@ -40,9 +44,12 @@ func (n *diagramBlock) Dump(source []byte, level int) {
 	ast.DumpHelper(n, source, level, map[string]string{"Lang": n.lang}, nil)
 }
 
+// New returns the goldmark.Extender for a resolved configuration.
+func New(cfg *render.Config) goldmark.Extender { return &extender{config: cfg} }
+
 // extender is the goldmark.Extender returned by New.
 type extender struct {
-	config *Config
+	config *render.Config
 }
 
 // Extend registers the AST transformer and the HTML node renderer.
@@ -57,7 +64,7 @@ func (e *extender) Extend(m goldmark.Markdown) {
 
 // transformer replaces supported fenced code blocks with a diagramBlock.
 type transformer struct {
-	config *Config
+	config *render.Config
 }
 
 // Transform implements parser.ASTTransformer.
@@ -79,7 +86,7 @@ func (t *transformer) Transform(doc *ast.Document, reader text.Reader, pc parser
 	}
 
 	for _, fcb := range fences {
-		if !t.config.handles(string(fcb.Language(source))) {
+		if !t.config.Handles(string(fcb.Language(source))) {
 			continue
 		}
 		lang := engines.NormalizeLang(string(fcb.Language(source)))
@@ -87,7 +94,7 @@ func (t *transformer) Transform(doc *ast.Document, reader text.Reader, pc parser
 		body := fencedSource(fcb, source)
 
 		block := &diagramBlock{lang: lang}
-		block.html, block.err = renderFragment(context.Background(), t.config, lang, body, attrs, fenceLine(source, fcb))
+		block.html, block.err = render.Fragment(context.Background(), t.config, lang, body, attrs, fenceLine(source, fcb))
 
 		parent := fcb.Parent()
 		if parent == nil {
@@ -95,20 +102,6 @@ func (t *transformer) Transform(doc *ast.Document, reader text.Reader, pc parser
 		}
 		parent.ReplaceChild(parent, fcb, block)
 	}
-}
-
-// handles reports whether a fence language is intercepted by this config.
-func (c *Config) handles(lang string) bool {
-	canonical := engines.NormalizeLang(lang)
-	if canonical == "" {
-		return false
-	}
-	for _, l := range c.Languages {
-		if engines.NormalizeLang(l) == canonical {
-			return true
-		}
-	}
-	return false
 }
 
 // diagramRenderer writes the pre-rendered fragment for each diagramBlock.

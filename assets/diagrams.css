@@ -1,39 +1,39 @@
 /* goldmark-diagrams reference stylesheet (diagrams.DefaultCSS()).
    One palette, one set of hooks: every diagram type the extension emits is
-   mapped onto the --gm-* custom properties below, so theming an ECharts bar
+   mapped onto the --diagram-* custom properties below, so theming an ECharts bar
    chart, a D2 architecture diagram and a Mermaid kanban board is the same
    three-line override. */
 
-.gm-diagram {
+.svg-diagram {
   margin: 1.5rem 0;
   overflow-x: auto;
 
   /* The shared palette. Without this stylesheet each engine's own default is
      used instead, because every mapped paint carries it as a var() fallback. */
-  --gm-bg: transparent;
-  --gm-fg: #1e293b;
-  --gm-muted: #64748b;
-  --gm-border: #cbd5e1;
-  --gm-line: #94a3b8;
-  --gm-surface: #ffffff;
-  --gm-surface-alt: #f1f5f9;
-  --gm-accent: #5470c6;
-  --gm-series-0: #5470c6;
-  --gm-series-1: #91cc75;
-  --gm-series-2: #fac858;
-  --gm-series-3: #ee6666;
-  --gm-series-4: #73c0de;
-  --gm-series-5: #3ba272;
-  --gm-series-6: #fc8452;
-  --gm-series-7: #9a60b4;
+  --diagram-bg: transparent;
+  --diagram-fg: #1e293b;
+  --diagram-muted: #64748b;
+  --diagram-border: #cbd5e1;
+  --diagram-line: #94a3b8;
+  --diagram-surface: #ffffff;
+  --diagram-surface-alt: #f1f5f9;
+  --diagram-accent: #5470c6;
+  --diagram-series-0: #5470c6;
+  --diagram-series-1: #91cc75;
+  --diagram-series-2: #fac858;
+  --diagram-series-3: #ee6666;
+  --diagram-series-4: #73c0de;
+  --diagram-series-5: #3ba272;
+  --diagram-series-6: #fc8452;
+  --diagram-series-7: #9a60b4;
 
   /* Error cards reuse the palette with their own accents. */
-  --gm-error-bg: #fef2f2;
-  --gm-error-border: #fca5a5;
-  --gm-error-fg: #b91c1c;
+  --diagram-error-bg: #fef2f2;
+  --diagram-error-border: #fca5a5;
+  --diagram-error-fg: #b91c1c;
 }
 
-.gm-diagram-svg {
+.svg-diagram-svg {
   display: block;
   width: 100%;
   max-width: 100%;
@@ -43,48 +43,48 @@
 /* Dark palette: follows the reader's preference, or an explicit
    data-theme="dark" from the fence info string. */
 @media (prefers-color-scheme: dark) {
-  .gm-diagram {
-    --gm-fg: #e2e8f0;
-    --gm-muted: #94a3b8;
-    --gm-border: #475569;
-    --gm-line: #64748b;
-    --gm-surface: #1e293b;
-    --gm-surface-alt: #334155;
-    --gm-accent: #73c0de;
-    --gm-error-bg: #450a0a;
-    --gm-error-border: #7f1d1d;
-    --gm-error-fg: #fca5a5;
+  .svg-diagram {
+    --diagram-fg: #e2e8f0;
+    --diagram-muted: #94a3b8;
+    --diagram-border: #475569;
+    --diagram-line: #64748b;
+    --diagram-surface: #1e293b;
+    --diagram-surface-alt: #334155;
+    --diagram-accent: #73c0de;
+    --diagram-error-bg: #450a0a;
+    --diagram-error-border: #7f1d1d;
+    --diagram-error-fg: #fca5a5;
   }
 }
 
-.gm-diagram[data-theme="dark"] {
-  --gm-fg: #e2e8f0;
-  --gm-muted: #94a3b8;
-  --gm-border: #475569;
-  --gm-line: #64748b;
-  --gm-surface: #1e293b;
-  --gm-surface-alt: #334155;
-  --gm-accent: #73c0de;
-  --gm-error-bg: #450a0a;
-  --gm-error-border: #7f1d1d;
-  --gm-error-fg: #fca5a5;
+.svg-diagram[data-theme="dark"] {
+  --diagram-fg: #e2e8f0;
+  --diagram-muted: #94a3b8;
+  --diagram-border: #475569;
+  --diagram-line: #64748b;
+  --diagram-surface: #1e293b;
+  --diagram-surface-alt: #334155;
+  --diagram-accent: #73c0de;
+  --diagram-error-bg: #450a0a;
+  --diagram-error-border: #7f1d1d;
+  --diagram-error-fg: #fca5a5;
 }
 
 /* Pure-CSS sibling dimming on hover, for every diagram type. The trailing :not()
    keeps an item's own ancestors undimmed, because venn sets and clustered
    Mermaid nodes legitimately nest inside one another. */
-.gm-diagram-svg:has([data-item]:hover) [data-item]:not(:hover):not(:has([data-item]:hover)) {
+.svg-diagram-svg:has([data-item]:hover) [data-item]:not(:hover):not(:has([data-item]:hover)) {
   opacity: 0.35;
   transition: opacity 150ms ease;
 }
 
-.gm-diagram-svg:has([data-card-id]:hover) [data-card-id]:not(:hover) {
+.svg-diagram-svg:has([data-card-id]:hover) [data-card-id]:not(:hover) {
   opacity: 0.5;
   transition: opacity 150ms ease;
 }
 
-.gm-diagram-svg [data-item]:hover,
-.gm-diagram-svg [data-card-id]:hover {
+.svg-diagram-svg [data-item]:hover,
+.svg-diagram-svg [data-card-id]:hover {
   filter: brightness(1.08);
   cursor: pointer;
 }
@@ -96,40 +96,43 @@
   }
 }
 
-.gm-diagram-svg path[stroke-dasharray] {
+.svg-diagram-svg path[stroke-dasharray] {
   animation: gm-dash-flow 1.2s linear infinite;
 }
 
 /* Server feedback loop: a click listener reads data-card-id/data-column-id and
    POSTs the move, so the affordance is announced in CSS only. */
-.gm-diagram-svg [data-card-id] {
+.svg-diagram-svg [data-card-id] {
   cursor: grab;
 }
 
-.gm-diagram-svg [data-card-id]:active {
+.svg-diagram-svg [data-card-id]:active {
   cursor: grabbing;
 }
 
 /* Error cards are diagrams too. */
-.gm-diagram-error {
+.svg-diagram-error {
   overflow: visible;
 }
 
-/* Hook reference for authors styling individual pieces:
-     [data-role="node|edge|cluster|commit|task|slice|point"]  (Mermaid)
-     [data-role="shape|connection"]                           (D2, DOT, PlantUML)
-     [data-role="mark"]  with [data-series="0".."7"]          (charts)
-     [data-role="column"] / [data-role="card"]                (kanban)
-   Per-series colour is already applied through --gm-series-N, so overriding the
+/* Hook reference for authors styling individual pieces. Every engine emits the
+   same class vocabulary, so one rule styles a type across all of them:
+     .svg-node .svg-edge .svg-cluster .svg-commit .svg-branch .svg-task .svg-slice
+     .svg-point .svg-venn-set .svg-venn-region                    (Mermaid)
+     .svg-shape .svg-connection                                 (D2, DOT, PlantUML)
+     .svg-mark .svg-series-0 .. .svg-series-7                    (charts)
+     .svg-column .svg-card                                      (kanban)
+   The data-role attributes carry the same names for client-side handlers.
+   Per-series colour is already applied through --diagram-series-N, so overriding the
    palette above is normally all that is needed. */
 
 @media (prefers-reduced-motion: reduce) {
-  .gm-diagram-svg path[stroke-dasharray] {
+  .svg-diagram-svg path[stroke-dasharray] {
     animation: none;
   }
 
-  .gm-diagram-svg:has([data-item]:hover) [data-item]:not(:hover):not(:has([data-item]:hover)),
-  .gm-diagram-svg:has([data-card-id]:hover) [data-card-id]:not(:hover) {
+  .svg-diagram-svg:has([data-item]:hover) [data-item]:not(:hover):not(:has([data-item]:hover)),
+  .svg-diagram-svg:has([data-card-id]:hover) [data-card-id]:not(:hover) {
     transition: none;
   }
 }

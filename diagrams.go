@@ -18,13 +18,16 @@ import (
 	_ "embed"
 	"time"
 
-	"github.com/goldmark-diagrams/goldmark-diagrams/engines"
+	"github.com/goldmark-diagrams/goldmark-diagrams/pkg/cache"
+	"github.com/goldmark-diagrams/goldmark-diagrams/pkg/engines"
+	"github.com/goldmark-diagrams/goldmark-diagrams/pkg/extender"
+	"github.com/goldmark-diagrams/goldmark-diagrams/pkg/render"
 	"github.com/yuin/goldmark"
 )
 
 // ModuleVersion participates in the content-addressed cache key, so bumping it
 // invalidates every cached fragment after a renderer change.
-const ModuleVersion = "v0.1.0"
+const ModuleVersion = cache.ModuleVersion
 
 //go:embed assets/diagrams.css
 var defaultCSS string
@@ -37,37 +40,26 @@ func DefaultCSS() string { return defaultCSS }
 func SupportedLanguages() []string { return engines.SupportedLanguages() }
 
 // ErrorMode selects what happens when a diagram fails to compile.
-type ErrorMode string
+type ErrorMode = render.ErrorMode
 
 const (
 	// ErrorSVGCard (default) renders a valid inline <svg> error card.
-	ErrorSVGCard ErrorMode = "svg_card"
+	ErrorSVGCard = render.ErrorSVGCard
 	// ErrorCodeBlock falls back to a standard <pre><code class="language-..."> block.
-	ErrorCodeBlock ErrorMode = "code_block"
+	ErrorCodeBlock = render.ErrorCodeBlock
 	// ErrorFail returns the Go error from markdown.Convert().
-	ErrorFail ErrorMode = "fail"
+	ErrorFail = render.ErrorFail
 )
 
 // Cache is a content-addressed store of normalized <figure> HTML fragments.
-type Cache interface {
-	Get(key string) (html string, ok bool)
-	Set(key string, html string)
-}
+type Cache = cache.Cache
 
 // Config holds every tunable of the extension. It is exported so hosts can
 // inspect a resolved configuration, but should be built via Options.
-type Config struct {
-	Theme     string
-	Cache     Cache
-	ErrorMode ErrorMode
-	Languages []string
-	Timeout   time.Duration
-	D2Layout  string // "dagre" (default). "elk" requires an external binary and is rejected.
-	ID        string // data-id stamped on <figure> for standalone renders.
-}
+type Config = render.Config
 
 // Option configures New() and RenderStandalone().
-type Option func(*Config)
+type Option = render.Option
 
 // WithTheme sets the theme hint ("auto" | "light" | "dark" | "neutral") emitted
 // as data-theme on <figure> and mapped onto engine theme selection.
@@ -95,32 +87,17 @@ func WithD2Layout(layout string) Option { return func(c *Config) { c.D2Layout = 
 // enabling server-backed feedback loops (kanban moves, chart drill-downs).
 func WithID(id string) Option { return func(c *Config) { c.ID = id } }
 
-func defaultConfig(opts ...Option) *Config {
-	c := &Config{
-		Theme:     "auto",
-		ErrorMode: ErrorSVGCard,
-		Timeout:   5 * time.Second,
-		D2Layout:  "dagre",
-	}
-	for _, o := range opts {
-		o(c)
-	}
-	if c.Cache == nil {
-		c.Cache = NewMemoryLRU(512)
-	}
-	if len(c.Languages) == 0 {
-		c.Languages = SupportedLanguages()
-	}
-	if c.D2Layout != "dagre" {
-		// elk/taro require external plugin binaries — forbidden by design.
-		c.D2Layout = "dagre"
-	}
-	return c
-}
+// NewMemoryLRU returns a thread-safe in-memory LRU cache holding at most
+// maxEntries fragments. A non-positive maxEntries falls back to 512.
+func NewMemoryLRU(maxEntries int) Cache { return cache.NewMemoryLRU(maxEntries) }
+
+// NewDiskCache returns a cache that stores fragments as <hash>.svg files under
+// dir, writing each atomically.
+func NewDiskCache(dir string) Cache { return cache.NewDiskCache(dir) }
 
 // New returns a goldmark.Extender for use with goldmark.New(goldmark.WithExtensions(...)).
 func New(opts ...Option) goldmark.Extender {
-	return &extender{config: defaultConfig(opts...)}
+	return extender.New(render.Default(opts...))
 }
 
 // RenderStandalone compiles a single diagram directly to normalized
@@ -128,6 +105,13 @@ func New(opts ...Option) goldmark.Extender {
 // SVG fragments after database mutations, so the client can swap
 // figure.outerHTML with zero state drift.
 func RenderStandalone(ctx context.Context, lang, source string, opts ...Option) (string, error) {
-	cfg := defaultConfig(opts...)
-	return renderFragment(ctx, cfg, lang, source, nil, 0)
+	return render.Fragment(ctx, render.Default(opts...), lang, source, nil, 0)
+}
+
+// NormalizeSVG rewrites a raw engine SVG into the single <svg> output contract:
+// a responsive viewBox, no hardcoded pixel size, the svg-diagram-svg class, and
+// data-* hooks on the interactive elements. It never emits <canvas>, <img>, or
+// inline <script>.
+func NormalizeSVG(rawSVG string, meta engines.Meta) (string, error) {
+	return render.NormalizeSVG(rawSVG, meta)
 }

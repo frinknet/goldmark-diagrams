@@ -6,13 +6,14 @@ CSS-interactive `<svg>` output, with optional `data-*` hooks for server-backed
 interactivity (Kanban card moves, chart drill-downs).
 
 See [`spec.md`](./spec.md) for the authoritative engineering specification and
-[`BACKLOG.md`](./BACKLOG.md) for the known gap between the two.
+[`BACKLOG.md`](./BACKLOG.md) for the known gap between the two. Per-type guides
+and the contract reference live in [`docs/`](./docs/README.md).
 
 ## Status
 
 Implementing and covered by tests: the three engine adapters, the DOT and
 PlantUML transpilers, the normalizer with its shared `data-*` hook vocabulary and
-`--gm-*` palette, the cache, the error cards, the reference stylesheet, and
+`--diagram-*` palette, the cache, the error cards, the reference stylesheet, and
 golden fixtures for Kanban, Mindmap, Venn, Gantt, GitGraph, flowchart, D2 ERD,
 ECharts bar/pie, PlantUML sequence, and Graphviz DOT.
 Caddy integration and the interactive database demo live outside this repository;
@@ -23,12 +24,12 @@ see [`BACKLOG.md`](./BACKLOG.md).
 1. **Pure Go only** (`CGO_ENABLED=0`). No CGo, no WASM/wazero, no external CLI
    binaries (`mmdc`, `plantuml.jar`, `dot`), no Node/Java runtimes, no headless browsers.
 2. **Single `<svg>` output contract.** Every supported fenced block renders into a
-   normalized `<figure class="gm-diagram">` wrapping an inline `<svg viewBox="...">`.
+   normalized `<figure class="svg-diagram">` wrapping an inline `<svg viewBox="...">`.
    Never emits `<canvas>`, `<img>`, or inline `<script>`.
 3. **Never-fail markdown conversion.** Invalid syntax or layout timeouts never
    break `markdown.Convert()`; errors render into an inline styled `<svg>` error card.
 4. **CSS-first interactivity.** SVGs emit predictable `data-*` attributes and
-   `--gm-*` CSS custom properties so hover dimming, animated flow lines, and
+   `--diagram-*` CSS custom properties so hover dimming, animated flow lines, and
    dark/light theming work in pure CSS.
 
 ## Engines
@@ -99,14 +100,15 @@ entry is written to `<sha256>.svg` atomically.
 ### Server-SVG feedback loop
 
 Every primary element of every diagram type is stamped with the same hook
-vocabulary, so one client-side handler can address all of them:
+vocabulary, so one client-side handler can address all of them and one
+stylesheet can style all of them:
 
-| Diagram | Hooks |
+| Diagram | Hooks and classes |
 | --- | --- |
-| `mermaid`, `mmd` | `data-item` + `data-role="node｜edge｜commit｜branch｜task｜slice｜point｜cluster｜venn-set｜venn-region"`, using pele's own ids |
-| `d2`, `dot`, `plantuml` | `data-item` + `data-role="shape"` (named from the shape's label) and `data-role="connection"` |
-| `chart`, `echarts` | `data-item` (the category label) + `data-series="0..7"` + `data-role="mark"` |
-| kanban | `data-column-id` + `data-role="column"`, `data-card-id` + `data-role="card"` |
+| `mermaid`, `mmd` | `data-item` + `data-role` using pele's own ids; the role follows pele's class (`node`, `edge`, `commit`, `task`, `lifeline`, `sankey-node`, ...) and is echoed as class `svg-<role>` |
+| `d2`, `dot`, `plantuml` | `data-item` + `data-role="shape"` (shape label), `data-role="connection"`; classes `svg-shape`, `svg-connection` |
+| `chart`, `echarts` | `data-item` (the category label) + `data-series="0..7"` + `data-role="mark"`; classes `svg-mark`, `svg-series-0..7` |
+| kanban | `data-column-id` + `data-role="column"`, `data-card-id` + `data-role="card"`; classes `svg-column`, `svg-card` |
 
 A thin delegated listener reads those attributes off the clicked element, POSTs
 the mutation, and swaps `figure.outerHTML` with the freshly rendered fragment, so
@@ -114,40 +116,44 @@ all state stays in your database rather than in client-side stores.
 
 ### One stylesheet for every diagram
 
-`DefaultCSS()` declares a single `--gm-*` palette (`--gm-bg`, `--gm-fg`,
-`--gm-muted`, `--gm-border`, `--gm-line`, `--gm-surface`, `--gm-surface-alt`,
-`--gm-accent`, `--gm-series-0` … `--gm-series-7`) and every engine's paint is
+`DefaultCSS()` declares a single `--diagram-*` palette (`--diagram-bg`, `--diagram-fg`,
+`--diagram-muted`, `--diagram-border`, `--diagram-line`, `--diagram-surface`, `--diagram-surface-alt`,
+`--diagram-accent`, `--diagram-series-0` … `--diagram-series-7`) and every engine's paint is
 mapped onto it, keeping the engine's own colour as the `var()` fallback:
 
-- Mermaid's `--pele-*` variables are aliased onto `--gm-*`.
+- Mermaid's `--pele-*` variables are aliased onto `--diagram-*`.
 - D2's embedded palette rules are rewritten by role (`fill-N1..N7`, `fill-B*`).
-- Chart marks are rewritten to `var(--gm-series-N, <engine colour>)`.
+- Chart marks are rewritten to `var(--diagram-series-N, <engine colour>)`.
 
 So one override themes all of them, and the dark palette follows
 `prefers-color-scheme` or an explicit `data-theme="dark"` on the fence:
 
 ```css
-.gm-diagram { --gm-accent: #7c3aed; --gm-series-0: #7c3aed; }
+.svg-diagram { --diagram-accent: #7c3aed; --diagram-series-0: #7c3aed; }
 ```
 
 ## Repository layout
 
 ```
 goldmark-diagrams/
-├── diagrams.go              # public options, New(), RenderStandalone(), DefaultCSS()
-├── extender.go              # goldmark.Extender, ASTTransformer, HTML node renderer
-├── normalizer.go            # responsive viewBox, data-* stamping, --gm-* mapping
-├── cache.go                 # SHA-256 MemoryLRU and DiskCache
-├── errors.go                # styled <svg> error card generator
+├── diagrams.go              # public API only: options, New(), RenderStandalone(), DefaultCSS()
 ├── assets/diagrams.css      # embedded reference CSS (//go:embed)
-└── engines/
-    ├── router.go            # dispatches lang -> pele-go, d2, or go-analyze/charts
-    ├── pele.go              # pele-go SVG adapter
-    ├── d2.go                # terrastruct/d2 SVG adapter
-    ├── charts.go            # go-analyze/charts SVG adapter
-    └── transpilers/
-        ├── plantuml.go      # PlantUML -> D2, and gantt/mindmap -> Mermaid
-        └── dot.go           # Graphviz DOT -> D2
+├── docs/                    # per-type guides plus the contract reference
+├── testdata/                # input fixtures and golden HTML output
+└── pkg/
+    ├── render/              # pipeline: config, normalizer, figure, error card, renderFragment
+    ├── extender/            # goldmark.Extender, ASTTransformer, HTML node renderer
+    ├── cache/               # SHA-256 key, MemoryLRU and DiskCache
+    ├── engines/
+    │   ├── router.go        # dispatches lang -> pele-go, d2, or go-analyze/charts
+    │   ├── pele.go          # pele-go SVG adapter
+    │   ├── d2.go            # terrastruct/d2 SVG adapter
+    │   ├── charts.go        # go-analyze/charts SVG adapter
+    │   └── transpilers/
+    │       ├── plantuml.go  # PlantUML -> D2, and gantt/mindmap -> Mermaid
+    │       └── dot.go       # Graphviz DOT -> D2
+    ├── tests/               # end-to-end API and golden tests
+    └── docscheck/           # documentation coverage and render tests
 ```
 
 ## Development

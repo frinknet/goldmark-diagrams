@@ -1,4 +1,4 @@
-package diagrams
+package render
 
 import (
 	"context"
@@ -10,11 +10,12 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/goldmark-diagrams/goldmark-diagrams/engines"
+	"github.com/goldmark-diagrams/goldmark-diagrams/pkg/cache"
+	"github.com/goldmark-diagrams/goldmark-diagrams/pkg/engines"
 )
 
-// gmSeriesCount is the number of --gm-series-N slots the palette publishes.
-const gmSeriesCount = 8
+// diagramSeriesCount is the number of --diagram-series-N slots the palette publishes.
+const diagramSeriesCount = 8
 
 // textContentRE extracts the text of a <text> element for <title> tooltips.
 var textContentRE = regexp.MustCompile(`(?s)<text\b[^>]*>(.*?)</text>`)
@@ -23,7 +24,7 @@ var textContentRE = regexp.MustCompile(`(?s)<text\b[^>]*>(.*?)</text>`)
 var innerTagRE = regexp.MustCompile(`(?s)<[^>]*>`)
 
 // NormalizeSVG rewrites a raw engine SVG into the single <svg> output contract:
-// a responsive viewBox, no hardcoded pixel size, the gm-diagram-svg class, and
+// a responsive viewBox, no hardcoded pixel size, the svg-diagram-svg class, and
 // data-* hooks on the interactive elements. It never emits <canvas>, <img>, or
 // inline <script>.
 func NormalizeSVG(rawSVG string, meta engines.Meta) (string, error) {
@@ -46,7 +47,7 @@ func NormalizeSVG(rawSVG string, meta engines.Meta) (string, error) {
 
 	attrs = ensureViewBox(attrs, meta)
 	attrs = removeAttrs(attrs, "width", "height")
-	attrs = setClass(attrs, "gm-diagram-svg")
+	attrs = setClass(attrs, "svg-diagram-svg")
 	attrs = setAttr(attrs, "role", "img")
 	if attrValue(attrs, "aria-label") == "" {
 		attrs = setAttr(attrs, "aria-label", meta.Lang+" diagram")
@@ -268,7 +269,7 @@ func appendStyle(existing, extra string) string {
 }
 
 // engineVarAliases declares the bridge variables an engine needs on the root
-// <svg> so every diagram type answers to the same --gm-* palette. The --gm-*
+// <svg> so every diagram type answers to the same --diagram-* palette. The --diagram-*
 // defaults themselves live in the reference stylesheet (DefaultCSS), so an
 // author can retheme every engine from one place while the engine's own default
 // remains the fallback when that stylesheet is not loaded.
@@ -279,22 +280,22 @@ func engineVarAliases(engine string) string {
 	// pele publishes --pele-*; point them at the shared vocabulary. pele uses
 	// --pele-bg as its node/card fill, so it maps onto a surface rather than the
 	// transparent canvas colour.
-	pairs := []struct{ pele, gm, fallback string }{
-		{"--pele-bg", "--gm-surface", "#fff"},
-		{"--pele-fg", "--gm-fg", "#1f1f1f"},
-		{"--pele-muted", "--gm-muted", "#6e6e6e"},
-		{"--pele-line", "--gm-line", "#1f1f1f"},
-		{"--pele-surface", "--gm-surface-alt", "#f3f3f3"},
-		{"--pele-surface-alt", "--gm-surface-alt", "#e6e6e6"},
-		{"--pele-border", "--gm-border", "#8a8a8a"},
-		{"--pele-accent", "--gm-accent", "#5b7bd5"},
+	pairs := []struct{ pele, shared, fallback string }{
+		{"--pele-bg", "--diagram-surface", "#fff"},
+		{"--pele-fg", "--diagram-fg", "#1f1f1f"},
+		{"--pele-muted", "--diagram-muted", "#6e6e6e"},
+		{"--pele-line", "--diagram-line", "#1f1f1f"},
+		{"--pele-surface", "--diagram-surface-alt", "#f3f3f3"},
+		{"--pele-surface-alt", "--diagram-surface-alt", "#e6e6e6"},
+		{"--pele-border", "--diagram-border", "#8a8a8a"},
+		{"--pele-accent", "--diagram-accent", "#5b7bd5"},
 	}
 	var b strings.Builder
 	for i, p := range pairs {
 		if i > 0 {
 			b.WriteByte(';')
 		}
-		fmt.Fprintf(&b, "%s:var(%s,%s)", p.pele, p.gm, p.fallback)
+		fmt.Fprintf(&b, "%s:var(%s,%s)", p.pele, p.shared, p.fallback)
 	}
 	return b.String()
 }
@@ -380,6 +381,14 @@ func stampInteractive(body string, meta engines.Meta) string {
 		nested := len(stack) > 0 && stack[len(stack)-1].closed
 		inDefs := len(stack) > 0 && stack[len(stack)-1].defs
 		injected := dataHooks(name, attrs, meta, state, nested, inDefs)
+		for _, a := range injected {
+			switch a.Name {
+			case "data-role":
+				attrs = setClass(attrs, "svg-"+a.Value)
+			case "data-series":
+				attrs = setClass(attrs, "svg-series-"+a.Value)
+			}
+		}
 
 		out.WriteString(renderOpenTag(name, attrs))
 		for _, a := range injected {
@@ -481,7 +490,7 @@ func chartHooks(attrs []svgAttr, meta engines.Meta, state *hookState) []svgAttr 
 		slot = len(state.seriesByColor)
 		state.seriesByColor[color] = slot
 	}
-	slot %= gmSeriesCount
+	slot %= diagramSeriesCount
 
 	item := orIndex("", &state.items)
 	if n := len(meta.Labels); n > 0 {
@@ -546,7 +555,7 @@ func isChartMark(name string, attrs []svgAttr) bool {
 	return fillColor(attrs) != ""
 }
 
-// weaveSeriesVar rewrites an inline chart fill so the --gm-series-N custom
+// weaveSeriesVar rewrites an inline chart fill so the --diagram-series-N custom
 // property governs it, with the engine's own colour as the fallback.
 func weaveSeriesVar(attrs []svgAttr, slot int, color string) {
 	for i, a := range attrs {
@@ -555,7 +564,7 @@ func weaveSeriesVar(attrs []svgAttr, slot int, color string) {
 		}
 		needle := "fill:" + color
 		if strings.Contains(a.Value, needle) {
-			replacement := fmt.Sprintf("fill:var(--gm-series-%d,%s)", slot, color)
+			replacement := fmt.Sprintf("fill:var(--diagram-series-%d,%s)", slot, color)
 			attrs[i] = svgAttr{Name: "style", Value: strings.Replace(a.Value, needle, replacement, 1)}
 		}
 		return
@@ -572,7 +581,7 @@ var d2RuleRE = regexp.MustCompile(`\.(fill|stroke)-([A-Za-z0-9]+)\{([^}]*)\}`)
 // colorDeclRE matches a paint declaration inside one of those rules.
 var colorDeclRE = regexp.MustCompile(`(fill|stroke):(#[0-9A-Fa-f]{3,8})`)
 
-// unifyD2Palette routes D2's theme colours through the shared --gm-* vocabulary.
+// unifyD2Palette routes D2's theme colours through the shared --diagram-* vocabulary.
 // D2 resolves shape paint through class rules in its own <style> block, so the
 // rules are rewritten by the palette role their class encodes (its N ramp is
 // neutral, B/AA/AB carry the accent and its tints), with each rule's own colour
@@ -598,7 +607,7 @@ func unifyD2Palette(body string) string {
 			prop, suffix := m[1], m[2]
 			decls := colorDeclRE.ReplaceAllStringFunc(m[3], func(decl string) string {
 				d := colorDeclRE.FindStringSubmatch(decl)
-				return d[1] + ":" + gmColorVar(d[1], suffix, d[2])
+				return d[1] + ":" + diagramColorVar(d[1], suffix, d[2])
 			})
 			return "." + prop + "-" + suffix + "{" + decls + "}"
 		}))
@@ -608,45 +617,45 @@ func unifyD2Palette(body string) string {
 	return out.String()
 }
 
-// gmColorVar maps one D2 palette colour onto a --gm-* variable. D2's classes
+// diagramColorVar maps one D2 palette colour onto a --diagram-* variable. D2's classes
 // encode the role: N is the neutral ramp (1 darkest, 7 lightest), and B/AA/AB
 // carry the accent at 1-2 and its tints at 3-6.
-func gmColorVar(prop, suffix, hex string) string {
+func diagramColorVar(prop, suffix, hex string) string {
 	family, digit := splitPaletteClass(suffix)
 	switch family {
 	case "N":
 		if prop == "stroke" {
 			switch digit {
 			case "1", "3", "4", "5", "6", "7":
-				return "var(--gm-border, " + hex + ")"
+				return "var(--diagram-border, " + hex + ")"
 			case "2":
-				return "var(--gm-muted, " + hex + ")"
+				return "var(--diagram-muted, " + hex + ")"
 			}
-			return "var(--gm-border, " + hex + ")"
+			return "var(--diagram-border, " + hex + ")"
 		}
 		switch digit {
 		case "1":
-			return "var(--gm-fg, " + hex + ")"
+			return "var(--diagram-fg, " + hex + ")"
 		case "2":
-			return "var(--gm-muted, " + hex + ")"
+			return "var(--diagram-muted, " + hex + ")"
 		case "5":
-			return "var(--gm-surface-alt, " + hex + ")"
+			return "var(--diagram-surface-alt, " + hex + ")"
 		case "6":
-			return "var(--gm-surface, " + hex + ")"
+			return "var(--diagram-surface, " + hex + ")"
 		case "7":
-			return "var(--gm-bg, " + hex + ")"
+			return "var(--diagram-bg, " + hex + ")"
 		}
-		return "var(--gm-border, " + hex + ")"
+		return "var(--diagram-border, " + hex + ")"
 	}
 	switch digit {
 	case "1", "2":
-		return "var(--gm-accent, " + hex + ")"
+		return "var(--diagram-accent, " + hex + ")"
 	case "4":
-		return "var(--gm-surface-alt, " + hex + ")"
+		return "var(--diagram-surface-alt, " + hex + ")"
 	case "5", "6":
-		return "var(--gm-surface, " + hex + ")"
+		return "var(--diagram-surface, " + hex + ")"
 	}
-	return "var(--gm-border, " + hex + ")"
+	return "var(--diagram-border, " + hex + ")"
 }
 
 // splitPaletteClass splits a D2 palette class such as N7, B3 or AA4 into its
@@ -889,18 +898,39 @@ func firstText(inner string) string {
 	return strings.TrimSpace(innerTagRE.ReplaceAllString(m[1], ""))
 }
 
+// figureAttrs are the data-* names buildFigure writes itself, so a fence
+// attribute of the same name cannot emit a duplicate attribute.
+var figureAttrs = map[string]bool{
+	"lang":   true,
+	"engine": true,
+	"theme":  true,
+	"hash":   true,
+}
+
+// fenceTheme lets an info-string theme attribute override the configured theme,
+// so ` ```mermaid theme=dark ` both selects the engine theme and labels the
+// figure.
+func fenceTheme(configured string, attrs map[string]string) string {
+	if t := strings.TrimSpace(attrs["theme"]); t != "" {
+		return t
+	}
+	return configured
+}
+
 // buildFigure wraps a normalized svg in the standardized <figure> element and
 // stamps the fence attributes onto it.
 func buildFigure(svg string, meta engines.Meta) string {
 	var b strings.Builder
-	b.WriteString(`<figure class="gm-diagram"`)
+	b.WriteString(`<figure class="svg-diagram"`)
 	writeAttr(&b, "data-lang", meta.Lang)
 	writeAttr(&b, "data-engine", meta.Engine)
 	writeAttr(&b, "data-theme", themeOrDefault(meta.Theme))
-	writeAttr(&b, "data-hash", shortHash(svg))
+	writeAttr(&b, "data-hash", cache.ShortHash(svg))
 	for _, k := range sortedKeys(meta.Attrs) {
 		name := sanitizeAttrName(k)
-		if name == "" {
+		if name == "" || figureAttrs[name] {
+			// Reserved names are already on the figure; a fence attribute must
+			// not emit a second copy of it.
 			continue
 		}
 		writeAttr(&b, "data-"+name, meta.Attrs[k])
@@ -967,16 +997,17 @@ func slug(s string) string {
 	return strings.Trim(b.String(), "-")
 }
 
-// renderFragment is the shared render path used by the AST transformer and by
+// Fragment is the shared render path used by the AST transformer and by
 // RenderStandalone. It never returns an error unless the configured ErrorMode
 // is ErrorFail.
-func renderFragment(ctx context.Context, cfg *Config, lang, source string, attrs map[string]string, line int) (string, error) {
+func Fragment(ctx context.Context, cfg *Config, lang, source string, attrs map[string]string, line int) (string, error) {
 	canonical := engines.NormalizeLang(lang)
 	if canonical == "" {
 		canonical = strings.ToLower(strings.TrimSpace(lang))
 	}
 	attrs = withConfiguredID(attrs, cfg.ID)
-	key := cacheKey(canonical, cfg.Theme, attrsKey(attrs), source)
+	theme := fenceTheme(cfg.Theme, attrs)
+	key := cache.Key(canonical, theme, attrsKey(attrs), source)
 	if cfg.Cache != nil {
 		if cached, ok := cfg.Cache.Get(key); ok {
 			return cached, nil
@@ -986,7 +1017,7 @@ func renderFragment(ctx context.Context, cfg *Config, lang, source string, attrs
 	meta := engines.Meta{
 		Lang:     canonical,
 		Engine:   engines.EngineForLang(canonical),
-		Theme:    cfg.Theme,
+		Theme:    theme,
 		D2Layout: cfg.D2Layout,
 		Attrs:    attrs,
 		Line:     line,
