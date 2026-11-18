@@ -35,4 +35,5 @@ as `--diagram-series-0`…`-7` on `.svg-diagram` by `DefaultCSS()`; `--diagram-f
 
 ## Caveats
 
-`labels` names the marks; without it each falls back to an index.
+`labels` names the marks; without it each mark is named by its 1-based category
+number, the same number the axis prints.

@@ -2,6 +2,7 @@ package render
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"html"
 	"math"
@@ -380,7 +381,16 @@ func stampInteractive(body string, meta engines.Meta) string {
 
 		nested := len(stack) > 0 && stack[len(stack)-1].closed
 		inDefs := len(stack) > 0 && stack[len(stack)-1].defs
-		injected := dataHooks(name, attrs, meta, state, nested, inDefs)
+		owner := ""
+		if len(stack) > 0 {
+			owner = stack[len(stack)-1].owner
+		}
+		if meta.Engine == engines.EngineD2 {
+			if id := d2OwnerID(name, attrs); id != "" {
+				owner = id
+			}
+		}
+		injected := dataHooks(name, attrs, meta, state, nested, inDefs, owner)
 		for _, a := range injected {
 			switch a.Name {
 			case "data-role":
@@ -394,7 +404,7 @@ func stampInteractive(body string, meta engines.Meta) string {
 		for _, a := range injected {
 			out.WriteByte(' ')
 			out.WriteString(a.Name)
-			fmt.Fprintf(&out, `="%s"`, a.Value)
+			fmt.Fprintf(&out, `="%s"`, html.EscapeString(a.Value))
 		}
 		out.WriteByte('>')
 
@@ -402,6 +412,7 @@ func stampInteractive(body string, meta engines.Meta) string {
 			stack = append(stack, hookFrame{
 				closed: nested || len(injected) > 0,
 				defs:   inDefs || isDefinitionContainer(name),
+				owner:  owner,
 			})
 		}
 		i = end + 1
@@ -411,8 +422,9 @@ func stampInteractive(body string, meta engines.Meta) string {
 
 // hookFrame tracks whether stamped hooks or definitions enclose the next element.
 type hookFrame struct {
-	closed bool // an ancestor is a stamped item, so children are its drawings
-	defs   bool // inside <defs>, <marker>, <mask>, ... (never drawn directly)
+	closed bool   // an ancestor is a stamped item, so children are its drawings
+	defs   bool   // inside <defs>, <marker>, <mask>, ... (never drawn directly)
+	owner  string // the D2 id of the element whose group encloses this one
 }
 
 // hookState carries the counters a single stamping pass needs.
@@ -430,8 +442,10 @@ func isDefinitionContainer(name string) bool {
 	return false
 }
 
-// dataHooks decides which data-* attributes an element earns.
-func dataHooks(name string, attrs []svgAttr, meta engines.Meta, state *hookState, nested, inDefs bool) []svgAttr {
+// dataHooks decides which data-* attributes an element earns. owner is the D2
+// id of the enclosing element group, which names connections after their
+// endpoints; every other engine leaves it empty.
+func dataHooks(name string, attrs []svgAttr, meta engines.Meta, state *hookState, nested, inDefs bool, owner string) []svgAttr {
 	if inDefs {
 		return nil
 	}
@@ -465,12 +479,15 @@ func dataHooks(name string, attrs []svgAttr, meta engines.Meta, state *hookState
 			// inside the group that already carries the hook.
 			return nil
 		case hasClass(classes, "shape"):
+			// A shape is renamed to its label after stamping; until then its D2
+			// id keeps the hook a real identity.
 			hooks = append(hooks,
-				svgAttr{Name: "data-item", Value: orIndex("", &state.items)},
+				svgAttr{Name: "data-item", Value: orIndex(slug(owner), &state.items)},
 				svgAttr{Name: "data-role", Value: "shape"})
 		case hasClass(classes, "connection"):
+			conn, _ := d2ConnectionItem(owner)
 			hooks = append(hooks,
-				svgAttr{Name: "data-item", Value: orIndex("", &state.items)},
+				svgAttr{Name: "data-item", Value: orIndex(conn, &state.items)},
 				svgAttr{Name: "data-role", Value: "connection"})
 		case meta.Engine == engines.EngineCharts && isChartMark(name, attrs):
 			hooks = append(hooks, chartHooks(attrs, meta, state)...)
@@ -492,12 +509,13 @@ func chartHooks(attrs []svgAttr, meta engines.Meta, state *hookState) []svgAttr 
 	}
 	slot %= diagramSeriesCount
 
-	item := orIndex("", &state.items)
+	// The engine paints one series at a time, in series order, so the Nth mark
+	// of a series is its Nth category: the label the spec gives it, or the
+	// 1-based category number the axis prints when the spec names none.
+	pos := state.seriesSeen[slot]
+	state.seriesSeen[slot] = pos + 1
+	item := strconv.Itoa(pos + 1)
 	if n := len(meta.Labels); n > 0 {
-		// The engine paints one series at a time, in series order, so the Nth
-		// mark of a series is its Nth category.
-		pos := state.seriesSeen[slot]
-		state.seriesSeen[slot] = pos + 1
 		item = meta.Labels[pos%n]
 	}
 	weaveSeriesVar(attrs, slot, color)
@@ -668,11 +686,55 @@ func splitPaletteClass(suffix string) (family, digit string) {
 	return suffix[:i], suffix[i:]
 }
 
-// nameD2Items replaces D2's positional shape indices with the shape's own label,
+// d2OwnerID decodes the identifier D2 stamps on the group that wraps every shape
+// and connection: the base64 of its HTML-escaped id. The group carries no
+// readable name, so this is the only way back to "alpha" or "(alpha -> beta)[0]".
+func d2OwnerID(name string, attrs []svgAttr) string {
+	if name != "g" {
+		return ""
+	}
+	classes := classTokens(attrs)
+	if len(classes) == 0 {
+		return ""
+	}
+	raw, err := base64.URLEncoding.DecodeString(classes[0])
+	if err != nil {
+		return ""
+	}
+	return html.UnescapeString(string(raw))
+}
+
+// d2ConnectionItem turns D2's connection id, "(src -> dst)[n]", into the
+// endpoint identity a client-side handler can store: "src->dst", with the index
+// kept only for parallel connections between the same pair.
+func d2ConnectionItem(id string) (string, bool) {
+	if !strings.HasPrefix(id, "(") || !strings.HasSuffix(id, "]") {
+		return "", false
+	}
+	open := strings.LastIndex(id, ")[")
+	if open < 0 {
+		return "", false
+	}
+	src, dst, ok := strings.Cut(id[1:open], " -> ")
+	if !ok {
+		return "", false
+	}
+	src, dst = strings.TrimSpace(src), strings.TrimSpace(dst)
+	if src == "" || dst == "" {
+		return "", false
+	}
+	item := src + "->" + dst
+	if n := id[open+2 : len(id)-1]; n != "" && n != "0" {
+		item += "[" + n + "]"
+	}
+	return item, true
+}
+
+// nameD2Items replaces a shape's provisional D2 id with the shape's own label,
 // which is what a client-side handler needs to survive an edit, and adds a
 // <title> child for zero-JS hover. D2 nests the label either inside the shape
 // group (tables) or next to it in the wrapper group (flowcharts), so both are
-// checked. Connections keep their index: D2 draws their labels elsewhere.
+// checked.
 func nameD2Items(body string) string {
 	type edit struct {
 		start, end int

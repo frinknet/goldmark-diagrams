@@ -5,8 +5,10 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -292,6 +294,49 @@ func TestChartsStampSeries(t *testing.T) {
 	}
 	if !strings.Contains(out, `svg-mark`) || !strings.Contains(out, `svg-series-0`) {
 		t.Errorf("chart marks are not styled by a standard class:\n%s", out)
+	}
+}
+
+func TestD2ConnectionsAreNamedByEndpoints(t *testing.T) {
+	md := mustMarkdown(t)
+	source := "alpha -> beta\nalpha -> beta: again\nbeta -> gamma\ngamma -> beta"
+	out, err := convert(t, md, fence("d2", source))
+	if err != nil {
+		t.Fatalf("Convert: %v", err)
+	}
+	assertCleanOutput(t, out)
+	for _, want := range []string{
+		`data-item="alpha-&gt;beta"`,
+		`data-item="alpha-&gt;beta[1]"`,
+		`data-item="beta-&gt;gamma"`,
+		`data-item="gamma-&gt;beta"`,
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("connection hook missing %q\n%s", want, out)
+		}
+	}
+	for _, a := range regexp.MustCompile(`data-item="([^"]*)" data-role="connection"`).FindAllStringSubmatch(out, -1) {
+		if _, err := strconv.Atoi(a[1]); err == nil {
+			t.Errorf("connection %q is still named by a counter", a[1])
+		}
+	}
+}
+
+func TestChartsNameUnlabelledMarksByCategory(t *testing.T) {
+	md := mustMarkdown(t)
+	out, err := convert(t, md, fence("chart", `{"type":"bar","series":[[1,2,3],[4,5,6]]}`))
+	if err != nil {
+		t.Fatalf("Convert: %v", err)
+	}
+	for _, want := range []string{
+		`data-item="1" data-series="0" data-role="mark"`,
+		`data-item="2" data-series="0" data-role="mark"`,
+		`data-item="3" data-series="0" data-role="mark"`,
+		`data-item="1" data-series="1" data-role="mark"`,
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("mark hook missing %q\n%s", want, out)
+		}
 	}
 }
 

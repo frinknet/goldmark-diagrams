@@ -41,13 +41,20 @@ Each role is also emitted as a class `svg-<role>`: `svg-node`, `svg-edge`,
 | --- | --- |
 | `mermaid`, `mmd` | `data-item` + `data-role` using pele's own ids; classes `svg-<role>` |
 | `d2`, `dot`, `plantuml` | `data-item` + `data-role="shape"` / `"connection"`; classes `svg-shape` / `svg-connection` |
-| `chart`, `echarts` | `data-item` (the category label) + `data-series="0..7"` + `data-role="mark"`; classes `svg-mark`, `svg-series-0..7` |
+| `chart`, `echarts` | `data-item` (the category label, or the 1-based category number when the spec names no `labels`) + `data-series="0..7"` + `data-role="mark"`; classes `svg-mark`, `svg-series-0..7` |
 | kanban | `data-column-id` + `data-role="column"`; `data-card-id` + `data-role="card"` |
 
 A hook is a real identity, not a counter: Mermaid elements use pele's ids,
-chart marks use the category label, D2 shapes use their label, and Kanban uses
-the column/card name. Indices are only a fallback where the engine exposes
-nothing else (D2 connections, chart marks with no labels).
+chart marks use the category label, D2 shapes use their label, D2 connections use
+their endpoints (`alpha->beta`, and `alpha->beta[1]` for a parallel connection),
+and Kanban uses the column/card name. The D2 identity is recovered from the id
+D2 encodes on the group that wraps each shape or connection, so it survives an
+edit elsewhere in the diagram.
+
+The one data set with no names is a chart whose spec omits `labels`: there each
+mark is named by its 1-based category number, the same number the axis prints,
+so `data-item` is the mark's own data coordinate rather than a document-order
+counter.
 
 ## Titles
 

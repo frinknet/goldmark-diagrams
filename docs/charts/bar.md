@@ -35,5 +35,6 @@ Each mark's fill becomes `var(--diagram-series-N, <engine colour>)`, declared as
 
 ## Caveats
 
-Marks are named only from `labels`; otherwise each falls back to a positional
-index. `names` feeds the legend only and never names a mark.
+Marks are named only from `labels`; without `labels` each mark is named by its
+1-based category number, the same number the axis prints. `names` feeds the
+legend only and never names a mark.

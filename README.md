@@ -108,8 +108,8 @@ stylesheet can style all of them:
 | Diagram | Hooks and classes |
 | --- | --- |
 | `mermaid`, `mmd` | `data-item` + `data-role` using pele's own ids; the role follows pele's class (`node`, `edge`, `commit`, `task`, `lifeline`, `sankey-node`, ...) and is echoed as class `svg-<role>` |
-| `d2`, `dot`, `plantuml` | `data-item` + `data-role="shape"` (shape label), `data-role="connection"`; classes `svg-shape`, `svg-connection` |
-| `chart`, `echarts` | `data-item` (the category label) + `data-series="0..7"` + `data-role="mark"`; classes `svg-mark`, `svg-series-0..7` |
+| `d2`, `dot`, `plantuml` | `data-item` + `data-role="shape"` (shape label) or `data-role="connection"` (named by its endpoints, e.g. `orders->users`); classes `svg-shape`, `svg-connection` |
+| `chart`, `echarts` | `data-item` (the category label, or the 1-based category number when `labels` is absent) + `data-series="0..7"` + `data-role="mark"`; classes `svg-mark`, `svg-series-0..7` |
 | kanban | `data-column-id` + `data-role="column"`, `data-card-id` + `data-role="card"`; classes `svg-column`, `svg-card` |
 
 A thin delegated listener reads those attributes off the clicked element, POSTs

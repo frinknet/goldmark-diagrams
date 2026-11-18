@@ -34,4 +34,5 @@ Each mark's fill becomes `var(--diagram-series-N, <engine colour>)`, declared as
 
 ## Caveats
 
-`labels` names the marks; without it each falls back to an index.
+`labels` names the marks; without it each mark is named by its 1-based category
+number, the same number the axis prints.
