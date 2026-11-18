@@ -1,0 +1,6 @@
+{
+  "type": "stacked_bar",
+  "labels": ["Mon", "Tue", "Wed"],
+  "names": ["CI", "Deploy"],
+  "series": [[30, 40, 35], [10, 12, 9]]
+}

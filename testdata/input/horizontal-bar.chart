@@ -1,0 +1,5 @@
+{
+  "type": "horizontal_bar",
+  "labels": ["Chrome", "Safari", "Firefox"],
+  "series": [[63, 20, 8]]
+}

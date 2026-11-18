@@ -14,8 +14,10 @@ and the contract reference live in [`docs/`](./docs/README.md).
 Implementing and covered by tests: the three engine adapters, the DOT and
 PlantUML transpilers, the normalizer with its shared `data-*` hook vocabulary and
 `--diagram-*` palette, the cache, the error cards, the reference stylesheet, and
-golden fixtures for Kanban, Mindmap, Venn, Gantt, GitGraph, flowchart, D2 ERD,
-ECharts bar/pie, PlantUML sequence, and Graphviz DOT.
+golden fixtures for all twelve chart types, Kanban, Mindmap, Venn, Gantt,
+GitGraph, flowchart and clustered flowchart, D2 ERD, PlantUML
+sequence/gantt/mindmap, and Graphviz DOT, including the `mmd`, `echarts`,
+`puml` and `graphviz` alias fences.
 Caddy integration and the interactive database demo live outside this repository;
 see [`BACKLOG.md`](./BACKLOG.md).
 

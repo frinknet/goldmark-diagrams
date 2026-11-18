@@ -1,0 +1,7 @@
+{
+  "type": "candlestick",
+  "labels": ["Mon", "Tue", "Wed"],
+  "candles": [[{"open":20,"high":26,"low":18,"close":24},
+               {"open":24,"high":25,"low":19,"close":20},
+               {"open":20,"high":27,"low":20,"close":26}]]
+}

@@ -7,7 +7,7 @@ A point cloud per series; put `"type": "scatter"` in the spec. No aliases.
 | Fence | ` ```chart ` (alias ` ```echarts `) |
 | Engine | go-analyze/charts |
 | Spec `type` | `scatter` (aliases: none) |
-| Golden fixture | none yet |
+| Golden fixture | `testdata/input/scatter.chart` |
 
 ## Spec
 
@@ -22,18 +22,18 @@ A point cloud per series; put `"type": "scatter"` in the spec. No aliases.
 
 ## Output
 
-Each plotted point is a filled `<path>`, so every point is a mark
-(`data-role="mark"`, class `svg-mark`). All points of one series share a colour
-and so one `data-series` slot; `data-item` comes from `labels` by position.
+Each plotted point is a `<circle>` element, not a filled `<path>`. The
+normalizer only treats a filled `<path>`/`<rect>` as a mark, so a plain scatter
+chart emits no `data-item` / `data-series` hooks. `labels` and `names` still
+drive the axes and legend.
 
 ## Theming
 
-Each point's fill becomes `var(--diagram-series-N, <engine colour>)`, declared as
-`--diagram-series-0`…`-7` on `.svg-diagram` by `DefaultCSS()`; `--diagram-fg`,
-`--diagram-muted`, `--diagram-border` and `--diagram-line` style axes.
+With no rewritten mark fills, `--diagram-series-N` governs nothing here and the
+engine's own colours show through; `--diagram-fg`, `--diagram-muted`,
+`--diagram-border` and `--diagram-line` style the axes and labels.
 
 ## Caveats
 
-`labels` names the marks; a dense series yields many `data-item` hooks.
-
-> Coverage: no golden fixture yet; see `BACKLOG.md`.
+`labels` and `names` feed the axes and legend only; circles carry no per-point
+mark handle.

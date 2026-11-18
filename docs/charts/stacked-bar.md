@@ -8,7 +8,7 @@ spec. Aliases: `stackedbar`, `stacked`.
 | Fence | ` ```chart ` (alias ` ```echarts `) |
 | Engine | go-analyze/charts |
 | Spec `type` | `stacked_bar` (aliases: `stackedbar`, `stacked`) |
-| Golden fixture | none yet |
+| Golden fixture | `testdata/input/stacked-bar.chart` |
 
 ## Spec
 
@@ -36,5 +36,3 @@ as `--diagram-series-0`…`-7` on `.svg-diagram` by `DefaultCSS()`; `--diagram-f
 ## Caveats
 
 `labels` names the marks; without it each falls back to an index.
-
-> Coverage: no golden fixture yet; see `BACKLOG.md`.

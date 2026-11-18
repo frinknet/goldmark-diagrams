@@ -1,0 +1,10 @@
+flowchart TB
+  subgraph edge[Edge]
+    proxy[Reverse proxy]
+  end
+  subgraph core[Core]
+    app[App server]
+    db[(SQLite)]
+  end
+  proxy --> app
+  app --> db

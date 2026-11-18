@@ -7,7 +7,7 @@ An OHLC candlestick chart; put `"type": "candlestick"` in the spec.
 | Fence | ` ```chart ` (alias ` ```echarts `) |
 | Engine | go-analyze/charts |
 | Spec `type` | `candlestick` (aliases: `candle`, `k`) |
-| Golden fixture | none yet |
+| Golden fixture | `testdata/input/candlestick.chart` |
 
 ## Spec
 
@@ -26,7 +26,9 @@ An OHLC candlestick chart; put `"type": "candlestick"` in the spec.
 This type reads `candles`, not `series`: one array per series of
 `{open, high, low, close}` objects. Candle bodies are filled `<path>` elements,
 so each body is a mark (`data-role="mark"`, class `svg-mark`); the high-low wick
-is stroked with `fill:none`, so wicks are not marks. `data-item` uses `labels`.
+is stroked with `fill:none`, so wicks are not marks. `data-item` cycles through
+`labels` per colour slot, so rising and falling bodies can repeat a label
+instead of naming every candle uniquely.
 
 ## Theming
 
@@ -36,5 +38,3 @@ Each body's fill becomes `var(--diagram-series-N, <engine colour>)`;
 ## Caveats
 
 `candles` is required; a `series`-only spec renders the error card.
-
-> Coverage: no golden fixture yet; see `BACKLOG.md`.

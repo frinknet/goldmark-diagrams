@@ -7,7 +7,7 @@ A flowchart draws a graph of steps, decisions and their connections, opened with
 | Fence | ` ```mermaid ` (alias ` ```mmd `) |
 | Engine | pele-go |
 | Keyword | `flowchart` |
-| Golden fixture | `testdata/input/flowchart.mermaid` |
+| Golden fixture | `testdata/input/flowchart.mermaid`; clustered: `testdata/input/flowchart-clusters.mmd` |
 
 ## Example
 
@@ -18,9 +18,27 @@ flowchart TD
   B -->|no| D[Stop]
 ```
 
+## Clusters
+
+A `subgraph` becomes a group carrying `data-item` + `data-role="cluster"` (class
+`svg-cluster`); the nodes and edges inside it keep their own hooks.
+
+```mermaid
+flowchart TB
+  subgraph edge[Edge]
+    proxy[Reverse proxy]
+  end
+  subgraph core[Core]
+    app[App server]
+    db[(SQLite)]
+  end
+  proxy --> app
+  app --> db
+```
+
 ## Output
 
-One `<figure class="svg-diagram" data-lang="mermaid" data-engine="pele" data-theme="auto" data-hash="...">` around one inline `<svg viewBox="..." class="svg-diagram-svg" role="img">`. Nodes carry `data-item` + `data-role="node"` (class `svg-node`); edges carry `data-item` + `data-role="edge"` (class `svg-edge`). Stamped groups get a `<title>` child for zero-JS hover tooltips.
+One `<figure class="svg-diagram" data-lang="mermaid" data-engine="pele" data-theme="auto" data-hash="...">` around one inline `<svg viewBox="..." class="svg-diagram-svg" role="img">`. Nodes carry `data-item` + `data-role="node"` (class `svg-node`); edges carry `data-item` + `data-role="edge"` (class `svg-edge`); clusters carry `data-item` + `data-role="cluster"` (class `svg-cluster`). Stamped groups get a `<title>` child for zero-JS hover tooltips.
 
 ## Theming
 

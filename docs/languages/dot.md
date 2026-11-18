@@ -23,6 +23,11 @@ digraph architecture {
 ```
 ````
 
+## Golden fixtures
+
+The canonical `dot` form is `testdata/input/cluster.dot`; the `graphviz`
+alias is exercised by `testdata/input/cluster-graphviz.graphviz`.
+
 ## Supported subset
 
 | DOT construct | Handling |

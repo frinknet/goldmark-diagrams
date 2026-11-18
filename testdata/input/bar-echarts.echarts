@@ -1,0 +1,7 @@
+{
+  "type": "bar",
+  "title": "Requests per day",
+  "labels": ["Mon", "Tue", "Wed", "Thu", "Fri"],
+  "names": ["Reqs", "Errors"],
+  "series": [[120, 200, 150, 80, 70], [10, 20, 5, 8, 3]]
+}

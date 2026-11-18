@@ -8,7 +8,7 @@ in the spec. Aliases: `horizontalbar`, `hbar`.
 | Fence | ` ```chart ` (alias ` ```echarts `) |
 | Engine | go-analyze/charts |
 | Spec `type` | `horizontal_bar` (aliases: `horizontalbar`, `hbar`) |
-| Golden fixture | none yet |
+| Golden fixture | `testdata/input/horizontal-bar.chart` |
 
 ## Spec
 
@@ -35,5 +35,3 @@ Each mark's fill becomes `var(--diagram-series-N, <engine colour>)`, declared as
 ## Caveats
 
 `labels` names the marks; without it each falls back to an index.
-
-> Coverage: no golden fixture yet; see `BACKLOG.md`.

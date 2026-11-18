@@ -7,7 +7,7 @@ A value grid shaded by magnitude; put `"type": "heatmap"` in the spec.
 | Fence | ` ```chart ` (alias ` ```echarts `) |
 | Engine | go-analyze/charts |
 | Spec `type` | `heatmap` (aliases: `heat`) |
-| Golden fixture | none yet |
+| Golden fixture | `testdata/input/heatmap.chart` |
 
 ## Spec
 
@@ -34,7 +34,6 @@ Each cell's fill becomes `var(--diagram-series-N, <engine colour>)`, declared as
 
 ## Caveats
 
-`names` is ignored; each cell colour is its own slot, so cells are not named. A
+`names` is ignored; each cell colour is its own slot, so `data-item` cycles
+through `labels` by slot rather than identifying a cell's row and column. A
 single row whose length equals `len(labels)` is transposed to one row per label.
-
-> Coverage: no golden fixture yet; see `BACKLOG.md`.

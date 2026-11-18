@@ -7,7 +7,7 @@ A pie with a hole in the middle; put `"type": "donut"` in the spec.
 | Fence | ` ```chart ` (alias ` ```echarts `) |
 | Engine | go-analyze/charts |
 | Spec `type` | `donut` (aliases: `doughnut`, `ring`) |
-| Golden fixture | none yet |
+| Golden fixture | `testdata/input/donut.chart` |
 
 ## Spec
 
@@ -36,5 +36,3 @@ Each segment's fill becomes `var(--diagram-series-N, <engine colour>)`;
 
 `labels` drive `data-item`; each segment is its own colour slot, so segments are
 not individually named.
-
-> Coverage: no golden fixture yet; see `BACKLOG.md`.

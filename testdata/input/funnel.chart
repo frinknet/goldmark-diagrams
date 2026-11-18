@@ -1,0 +1,5 @@
+{
+  "type": "funnel",
+  "labels": ["Visit", "Sign up", "Purchase"],
+  "series": [[1000, 250, 60]]
+}

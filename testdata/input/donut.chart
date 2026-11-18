@@ -1,0 +1,6 @@
+{
+  "type": "donut",
+  "title": "Storage",
+  "labels": ["Docs", "Media", "Cache"],
+  "series": [[50, 30, 20]]
+}

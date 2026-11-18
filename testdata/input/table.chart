@@ -1,0 +1,7 @@
+{
+  "type": "table",
+  "table": {
+    "header": ["Name", "Age", "Action"],
+    "rows": [["John", "32", "Send Mail"], ["Jim", "42", "Send Mail"]]
+  }
+}

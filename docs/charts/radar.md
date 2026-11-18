@@ -7,7 +7,7 @@ A spider chart with one polygon per series; put `"type": "radar"` in the spec.
 | Fence | ` ```chart ` (alias ` ```echarts `) |
 | Engine | go-analyze/charts |
 | Spec `type` | `radar` (aliases: none) |
-| Golden fixture | none yet |
+| Golden fixture | `testdata/input/radar.chart` |
 
 ## Spec
 
@@ -36,5 +36,3 @@ as `--diagram-series-0`…`-7` on `.svg-diagram` by `DefaultCSS()`; `--diagram-f
 
 The radar option list omits the theme, so `theme=dark` does not recolour it, and
 each polygon resolves to `labels[0]` as its name.
-
-> Coverage: no golden fixture yet; see `BACKLOG.md`.

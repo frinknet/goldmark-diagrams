@@ -7,7 +7,7 @@ A plain data table rendered as SVG; put `"type": "table"` in the spec.
 | Fence | ` ```chart ` (alias ` ```echarts `) |
 | Engine | go-analyze/charts |
 | Spec `type` | `table` (aliases: none) |
-| Golden fixture | none yet |
+| Golden fixture | `testdata/input/table.chart` |
 
 ## Spec
 
@@ -37,5 +37,3 @@ The row-strip fills become `var(--diagram-series-N, <engine colour>)`;
 `table` is required (otherwise the error card). `width` sets the painter width and
 the height is computed from the rows, so the spec's `height` has no effect;
 `title`, `labels` and `names` are ignored.
-
-> Coverage: no golden fixture yet; see `BACKLOG.md`.

@@ -7,7 +7,7 @@ A descending funnel, one segment per value; put `"type": "funnel"` in the spec.
 | Fence | ` ```chart ` (alias ` ```echarts `) |
 | Engine | go-analyze/charts |
 | Spec `type` | `funnel` (aliases: none) |
-| Golden fixture | none yet |
+| Golden fixture | `testdata/input/funnel.chart` |
 
 ## Spec
 
@@ -36,5 +36,3 @@ as `--diagram-series-0`…`-7` on `.svg-diagram` by `DefaultCSS()`; `--diagram-f
 
 `labels` drive `data-item`; each segment is its own colour slot, so segments are
 not individually named.
-
-> Coverage: no golden fixture yet; see `BACKLOG.md`.

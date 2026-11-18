@@ -7,7 +7,7 @@ A grouped vertical bar chart; put `"type": "bar"` in the spec. No aliases.
 | Fence | ` ```chart ` (alias ` ```echarts `) |
 | Engine | go-analyze/charts |
 | Spec `type` | `bar` (aliases: none) |
-| Golden fixture | `testdata/input/bar.chart` |
+| Golden fixture | `testdata/input/bar.chart`; `echarts` alias: `testdata/input/bar-echarts.echarts` |
 
 ## Spec
 

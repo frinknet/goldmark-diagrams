@@ -1,0 +1,6 @@
+{
+  "type": "radar",
+  "labels": ["Speed", "Power", "Range", "Cost"],
+  "names": ["Model A", "Model B"],
+  "series": [[80, 60, 70, 40], [50, 90, 55, 65]]
+}

@@ -1,0 +1,6 @@
+{
+  "type": "heatmap",
+  "title": "Traffic by hour",
+  "labels": ["A", "B", "C"],
+  "series": [[1, 5, 3], [4, 2, 9], [7, 1, 6]]
+}

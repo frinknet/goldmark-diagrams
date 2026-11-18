@@ -1,0 +1,6 @@
+{
+  "type": "scatter",
+  "labels": ["A", "B", "C", "D"],
+  "names": ["Run 1", "Run 2"],
+  "series": [[5, 9, 3, 7], [2, 4, 8, 1]]
+}

@@ -7,7 +7,7 @@ A multi-series line chart; put `"type": "line"` in the spec. No aliases.
 | Fence | ` ```chart ` (alias ` ```echarts `) |
 | Engine | go-analyze/charts |
 | Spec `type` | `line` (aliases: none) |
-| Golden fixture | none yet |
+| Golden fixture | `testdata/input/line.chart` |
 
 ## Spec
 
@@ -36,5 +36,3 @@ engine's own stroke colours show through; `--diagram-fg`, `--diagram-muted`,
 ## Caveats
 
 `names` feeds the legend only; stroked lines carry no per-series mark handle.
-
-> Coverage: no golden fixture yet; see `BACKLOG.md`.

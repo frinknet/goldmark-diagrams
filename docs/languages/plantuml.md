@@ -57,6 +57,14 @@ Mindmap (to pele/Mermaid):
 ```
 ````
 
+## Golden fixtures
+
+| Form | Fixture |
+| --- | --- |
+| Sequence (D2) | `testdata/input/sequence.plantuml` |
+| Gantt (`puml` alias, pele) | `testdata/input/gantt-plantuml.puml` |
+| Mindmap (`puml` alias, pele) | `testdata/input/mindmap-plantuml.puml` |
+
 ## Hooks
 
 - Gantt and mindmap output carries pele's Mermaid roles (`task`, `node`; see
