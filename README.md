@@ -111,7 +111,7 @@ stylesheet can style all of them:
 | Mermaid XY chart | `data-item` (the x-axis category) + `data-series="0..7"` + `data-role="bar"`, `"point"` or `"line"`; classes `svg-bar`, `svg-point`, `svg-line` |
 | Mermaid info | `data-item` (the rendered version text) + `data-role="version"`; class `svg-version` |
 | `d2`, `dot`, `plantuml` | `data-item` + `data-role="shape"` (shape label) or `data-role="connection"` (named by its endpoints, e.g. `orders->users`); classes `svg-shape`, `svg-connection` |
-| `chart`, `echarts` | `data-item` (the category label, or the 1-based category number when `labels` is absent) + `data-series="0..7"` + `data-role="mark"`; classes `svg-mark`, `svg-series-0..7` |
+| `chart`, `echarts` | `data-item` (the category label, or the 1-based category number when `labels` is absent) + `data-series="0..7"` + `data-role="mark"`; line series use `data-role="line"` named after the series; classes `svg-mark`, `svg-line`, `svg-series-0..7` |
 | kanban | `data-column-id` + `data-role="column"`, `data-card-id` + `data-role="card"`; classes `svg-column`, `svg-card` |
 
 A thin delegated listener reads those attributes off the clicked element, POSTs

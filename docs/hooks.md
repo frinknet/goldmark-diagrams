@@ -41,7 +41,7 @@ Each role is also emitted as a class `svg-<role>`: `svg-node`, `svg-edge`,
 | --- | --- |
 | `mermaid`, `mmd` | `data-item` + `data-role` using pele's own ids; classes `svg-<role>` |
 | `d2`, `dot`, `plantuml` | `data-item` + `data-role="shape"` / `"connection"`; classes `svg-shape` / `svg-connection` |
-| `chart`, `echarts` | `data-item` (the category label, or the 1-based category number when the spec names no `labels`) + `data-series="0..7"` + `data-role="mark"`; classes `svg-mark`, `svg-series-0..7` |
+| `chart`, `echarts` | `data-item` (the category label, or the 1-based category number when the spec names no `labels`) + `data-series="0..7"` + `data-role="mark"`; line series use `data-role="line"` named after the series; classes `svg-mark`, `svg-line`, `svg-series-0..7` |
 | kanban | `data-column-id` + `data-role="column"`; `data-card-id` + `data-role="card"` |
 
 A hook is a real identity, not a counter: Mermaid elements use pele's ids,

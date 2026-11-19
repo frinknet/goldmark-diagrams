@@ -24,15 +24,17 @@ A multi-series line chart; put `"type": "line"` in the spec. No aliases.
 ## Output
 
 A line is a stroked `<path>` with `fill:none` and its symbols are `<circle>`.
-The normalizer only treats a filled `<path>`/`<rect>` as a mark, so neither
-qualifies: a plain line chart emits no `data-item` / `data-series` marks.
+The normalizer stamps the stroked path with `data-item` (the series name, or
+`line` when `names` is absent), `data-series="0..7"` and `data-role="line"`,
+so one handler can address each series.
 
 ## Theming
 
-With no rewritten mark fills, `--diagram-series-N` governs nothing here and the
-engine's own stroke colours show through; `--diagram-fg`, `--diagram-muted`,
+The line's stroke is rewritten to `var(--diagram-series-N, <engine colour>)`, so
+`--diagram-series-N` governs it; `--diagram-fg`, `--diagram-muted`,
 `--diagram-border` and `--diagram-line` style the axes and labels.
 
 ## Caveats
 
-`names` feeds the legend only; stroked lines carry no per-series mark handle.
+`names` feeds the legend and the per-series `data-item`; the line's symbols
+(`<circle>`) carry no per-point handle.

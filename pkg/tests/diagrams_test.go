@@ -378,6 +378,38 @@ func TestChartsNameUnlabelledMarksByCategory(t *testing.T) {
 	}
 }
 
+func TestLineChartHooks(t *testing.T) {
+	md := mustMarkdown(t)
+	out, err := convert(t, md, fence("chart", `{"type":"line","labels":["A","B"],"names":["p50","p99"],"series":[[1,2],[3,4]]}`))
+	if err != nil {
+		t.Fatalf("Convert: %v", err)
+	}
+	for _, want := range []string{
+		`data-item="p50" data-series="0" data-role="line"`,
+		`data-item="p99" data-series="1" data-role="line"`,
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("line hook missing %q\n%s", want, out)
+		}
+	}
+}
+
+func TestScatterChartHooks(t *testing.T) {
+	md := mustMarkdown(t)
+	out, err := convert(t, md, fence("chart", `{"type":"scatter","labels":["A","B"],"names":["Run 1"],"series":[[1,2]]}`))
+	if err != nil {
+		t.Fatalf("Convert: %v", err)
+	}
+	for _, want := range []string{
+		`data-item="A" data-series="0" data-role="mark"`,
+		`data-item="B" data-series="0" data-role="mark"`,
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("scatter hook missing %q\n%s", want, out)
+		}
+	}
+}
+
 func TestD2PaletteIsMappedToSharedVariables(t *testing.T) {
 	md := mustMarkdown(t)
 	out, err := convert(t, md, fence("d2", "a -> b"))

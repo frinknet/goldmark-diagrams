@@ -19,13 +19,15 @@ const (
 
 // Meta describes a render request and the engine that handled it.
 type Meta struct {
-	Lang     string            // normalized fence language, e.g. "mermaid", "d2", "chart"
-	Engine   string            // EnginePele | EngineD2 | EngineCharts
-	Theme    string            // "auto" | "light" | "dark" | "neutral"
-	D2Layout string            // resolved D2 layout ("dagre")
-	Attrs    map[string]string // key=value attributes from the info string (id=..., resource=...)
-	Line     int               // source line of the fence, when known
-	Labels   []string          // category labels, when the source declares them (charts)
+	Lang      string            // normalized fence language, e.g. "mermaid", "d2", "chart"
+	Engine    string            // EnginePele | EngineD2 | EngineCharts
+	Theme     string            // "auto" | "light" | "dark" | "neutral"
+	D2Layout  string            // resolved D2 layout ("dagre")
+	Attrs     map[string]string // key=value attributes from the info string (id=..., resource=...)
+	Line      int               // source line of the fence, when known
+	Labels    []string          // category labels, when the source declares them (charts)
+	Names     []string          // series names, when the source declares them (charts)
+	ChartType string            // chart type, when the source declares one (charts)
 
 	// Width and Height are the intrinsic drawing size, filled in after a
 	// successful render so the normalizer can synthesize a viewBox.
@@ -35,11 +37,13 @@ type Meta struct {
 
 // RenderResult is the raw SVG plus intrinsic size produced by an engine.
 type RenderResult struct {
-	SVG    string
-	Engine string   // EnginePele | EngineD2 | EngineCharts
-	Labels []string // category labels the normalizer can name marks with
-	Width  float64  // 0 = unknown; normalizer will try to read viewBox
-	Height float64
+	SVG       string
+	Engine    string   // EnginePele | EngineD2 | EngineCharts
+	Labels    []string // category labels the normalizer can name marks with
+	Names     []string // series names the normalizer can name marks with
+	ChartType string   // chart type the normalizer can use to identify marks
+	Width     float64  // 0 = unknown; normalizer will try to read viewBox
+	Height    float64
 }
 
 // SupportedLanguages lists every fence language the router recognizes.

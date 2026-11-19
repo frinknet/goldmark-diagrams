@@ -510,7 +510,7 @@ func dataHooks(name string, attrs []svgAttr, meta engines.Meta, state *hookState
 			hooks = append(hooks,
 				svgAttr{Name: "data-item", Value: orIndex(conn, &state.items)},
 				svgAttr{Name: "data-role", Value: "connection"})
-		case meta.Engine == engines.EngineCharts && isChartMark(name, attrs):
+		case meta.Engine == engines.EngineCharts && isChartMark(name, attrs, meta):
 			hooks = append(hooks, chartHooks(attrs, meta, state)...)
 		}
 	}
@@ -519,7 +519,12 @@ func dataHooks(name string, attrs []svgAttr, meta engines.Meta, state *hookState
 
 // chartHooks names a plotted mark with the category label and series slot.
 func chartHooks(attrs []svgAttr, meta engines.Meta, state *hookState) []svgAttr {
-	color := fillColor(attrs)
+	fill := fillColor(attrs)
+	stroke := strokeColor(attrs)
+	color := fill
+	if color == "" {
+		color = stroke
+	}
 	if color == "" {
 		return nil
 	}
@@ -530,16 +535,29 @@ func chartHooks(attrs []svgAttr, meta engines.Meta, state *hookState) []svgAttr 
 	}
 	slot %= diagramSeriesCount
 
-	// The engine paints one series at a time, in series order, so the Nth mark
-	// of a series is its Nth category: the label the spec gives it, or the
-	// 1-based category number the axis prints when the spec names none.
+	weaveSeriesVar(attrs, slot, color)
+
+	// A line series is one stroked path for the whole series: name it after
+	// the series, not after its first category.
+	if meta.ChartType == "line" && fill == "" {
+		item := "line"
+		if slot < len(meta.Names) && meta.Names[slot] != "" {
+			item = meta.Names[slot]
+		}
+		return []svgAttr{
+			{Name: "data-item", Value: item},
+			{Name: "data-series", Value: strconv.Itoa(slot)},
+			{Name: "data-role", Value: "line"},
+		}
+	}
+
+	// Everything else is a per-category mark.
 	pos := state.seriesSeen[slot]
 	state.seriesSeen[slot] = pos + 1
 	item := strconv.Itoa(pos + 1)
 	if n := len(meta.Labels); n > 0 {
 		item = meta.Labels[pos%n]
 	}
-	weaveSeriesVar(attrs, slot, color)
 	return []svgAttr{
 		{Name: "data-item", Value: item},
 		{Name: "data-series", Value: strconv.Itoa(slot)},
@@ -645,26 +663,39 @@ func peleItemRole(classes []string, dataID string) string {
 }
 
 // isChartMark reports whether an element is a plotted data mark rather than
-// chart furniture. Only path and rect carry series data in the charts engine's
-// output; text, circles and lines are labels, legend swatches and grid lines.
-func isChartMark(name string, attrs []svgAttr) bool {
-	if name != "path" && name != "rect" {
-		return false
+// chart furniture. Filled paths and rects are marks; so are scatter points
+// (filled circles with a 1px stroke) and line series (a stroked path with
+// fill:none and a 2px stroke).
+func isChartMark(name string, attrs []svgAttr, meta engines.Meta) bool {
+	if name == "circle" {
+		// Scatter points are filled circles with a 1px stroke; legend
+		// swatches are 3px and line point markers are white-filled.
+		return fillColor(attrs) != "" && styleValue(attrs, "stroke-width") == "1"
 	}
-	return fillColor(attrs) != ""
+	if fillColor(attrs) != "" {
+		return name == "path" || name == "rect"
+	}
+	if meta.ChartType == "line" && name == "path" && styleValue(attrs, "fill") == "none" && styleValue(attrs, "stroke-width") == "2" {
+		return true
+	}
+	return false
 }
 
-// weaveSeriesVar rewrites an inline chart fill so the --diagram-series-N custom
-// property governs it, with the engine's own colour as the fallback.
+// weaveSeriesVar rewrites an inline chart fill or stroke so the
+// --diagram-series-N custom property governs it, with the engine's own colour
+// as the fallback.
 func weaveSeriesVar(attrs []svgAttr, slot int, color string) {
 	for i, a := range attrs {
 		if a.Name != "style" {
 			continue
 		}
-		needle := "fill:" + color
-		if strings.Contains(a.Value, needle) {
-			replacement := fmt.Sprintf("fill:var(--diagram-series-%d,%s)", slot, color)
-			attrs[i] = svgAttr{Name: "style", Value: strings.Replace(a.Value, needle, replacement, 1)}
+		for _, prop := range []string{"fill", "stroke"} {
+			needle := prop + ":" + color
+			if strings.Contains(a.Value, needle) {
+				replacement := fmt.Sprintf("%s:var(--diagram-series-%d,%s)", prop, slot, color)
+				attrs[i] = svgAttr{Name: "style", Value: strings.Replace(a.Value, needle, replacement, 1)}
+				return
+			}
 		}
 		return
 	}
@@ -977,12 +1008,23 @@ func orIndex(id string, counter *int) string {
 // fillColor returns the fill colour of a shape that carries visible paint,
 // which is how the charts engine distinguishes data marks from grid lines.
 func fillColor(attrs []svgAttr) string {
+	return stylePaint(attrs, "fill")
+}
+
+// strokeColor returns the stroke colour of a shape that carries visible paint,
+// which is how the charts engine distinguishes line series from grid lines.
+func strokeColor(attrs []svgAttr) string {
+	return stylePaint(attrs, "stroke")
+}
+
+// stylePaint extracts a paint declaration from an inline style attribute.
+func stylePaint(attrs []svgAttr, prop string) string {
 	style := attrValue(attrs, "style")
-	i := strings.Index(style, "fill:")
+	i := strings.Index(style, prop+":")
 	if i < 0 {
 		return ""
 	}
-	v := style[i+len("fill:"):]
+	v := style[i+len(prop)+1:]
 	if j := strings.IndexByte(v, ';'); j >= 0 {
 		v = v[:j]
 	}
@@ -992,6 +1034,21 @@ func fillColor(attrs []svgAttr) string {
 		return ""
 	}
 	return v
+}
+
+// styleValue extracts a style declaration value verbatim, without the
+// paint-colour filtering stylePaint applies.
+func styleValue(attrs []svgAttr, prop string) string {
+	style := attrValue(attrs, "style")
+	i := strings.Index(style, prop+":")
+	if i < 0 {
+		return ""
+	}
+	v := style[i+len(prop)+1:]
+	if j := strings.IndexByte(v, ';'); j >= 0 {
+		v = v[:j]
+	}
+	return strings.TrimSpace(v)
 }
 
 // nameVersionItems hooks the info diagram's single line of content. The version
@@ -1218,6 +1275,8 @@ func Fragment(ctx context.Context, cfg *Config, lang, source string, attrs map[s
 	if err == nil {
 		meta.Engine = res.Engine
 		meta.Labels = res.Labels
+		meta.Names = res.Names
+		meta.ChartType = res.ChartType
 		meta.Width, meta.Height = res.Width, res.Height
 		if res.SVG, err = NormalizeSVG(res.SVG, meta); err != nil {
 			res.SVG = ""

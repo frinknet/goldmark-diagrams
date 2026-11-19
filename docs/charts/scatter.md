@@ -22,18 +22,18 @@ A point cloud per series; put `"type": "scatter"` in the spec. No aliases.
 
 ## Output
 
-Each plotted point is a `<circle>` element, not a filled `<path>`. The
-normalizer only treats a filled `<path>`/`<rect>` as a mark, so a plain scatter
-chart emits no `data-item` / `data-series` hooks. `labels` and `names` still
-drive the axes and legend.
+Each plotted point is a `<circle>` element. The normalizer stamps every point
+with `data-item` (the category label, or the 1-based category number when
+`labels` is absent), `data-series="0..7"` and `data-role="mark"`, so one
+handler can address each point.
 
 ## Theming
 
-With no rewritten mark fills, `--diagram-series-N` governs nothing here and the
-engine's own colours show through; `--diagram-fg`, `--diagram-muted`,
+Each point's fill is rewritten to `var(--diagram-series-N, <engine colour>)`, so
+`--diagram-series-N` governs it; `--diagram-fg`, `--diagram-muted`,
 `--diagram-border` and `--diagram-line` style the axes and labels.
 
 ## Caveats
 
-`labels` and `names` feed the axes and legend only; circles carry no per-point
-mark handle.
+`labels` and `names` feed the axes and legend; the legend swatches are not
+stamped as points.
