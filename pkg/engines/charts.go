@@ -155,7 +155,20 @@ func renderCharts(_ context.Context, meta Meta, source string) (*RenderResult, e
 	} else {
 		return nil, &engineError{"charts produced no <svg> element"}
 	}
-	return &RenderResult{SVG: svg, Engine: EngineCharts, Labels: spec.Labels, Names: spec.Names, ChartType: strings.ToLower(spec.Type), Width: float64(p.Width()), Height: float64(p.Height())}, nil
+	res := &RenderResult{
+		SVG:       svg,
+		Engine:    EngineCharts,
+		Labels:    spec.Labels,
+		Names:     spec.Names,
+		ChartType: strings.ToLower(spec.Type),
+		Width:     float64(p.Width()),
+		Height:    float64(p.Height()),
+	}
+	if spec.Table != nil && res.ChartType == "table" {
+		res.TableHeader = spec.Table.Header
+		res.TableRows = spec.Table.Rows
+	}
+	return res, nil
 }
 
 // heatMap uses the painter-level heat map API, which has no XxxRender shortcut.

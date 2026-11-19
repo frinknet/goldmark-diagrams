@@ -6,7 +6,7 @@ The public API lives in package `diagrams` (module
 ## Functions and constants
 
 ```go
-const ModuleVersion = "v0.6.0"
+const ModuleVersion = "v0.7.0"
 
 func DefaultCSS() string
 func SupportedLanguages() []string
@@ -42,7 +42,7 @@ func NewDiskCache(dir string) Cache      // atomic temp-file + rename writes
 
 | Option | Default |
 | --- | --- |
-| `WithTheme("auto"｜"light"｜"dark"｜"neutral")` | `auto` |
+| `WithTheme("auto"｜"light"｜"dark"｜"neutral")` | `auto` (any other value normalizes to `auto`) |
 | `WithCache(cache)` | `NewMemoryLRU(512)` |
 | `WithErrorMode(mode)` | `ErrorSVGCard` |
 | `WithLanguages(langs...)` | every supported language |

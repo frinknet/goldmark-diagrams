@@ -57,6 +57,7 @@ replace `figure.outerHTML`.
 | --- | --- | --- |
 | `data-id` | `<figure>` | identifies the whole diagram (fence `id=...` or `WithID`) |
 | `data-item` | primary mark | node / shape / chart mark identity |
+| `data-row` | table cell | the row a cell belongs to (e.g. for a drill-down) |
 | `data-card-id` | kanban card | card identity for a move |
 | `data-column-id` | kanban column | destination column slug |
 

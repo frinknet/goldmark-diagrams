@@ -192,6 +192,43 @@ func TestInfoAttributesStampTheFigure(t *testing.T) {
 	}
 }
 
+func TestUnknownThemeNormalizesToAuto(t *testing.T) {
+	cases := []struct {
+		name string
+		opts []diagrams.Option
+		md   string
+	}{
+		{name: "option", opts: []diagrams.Option{diagrams.WithTheme("purple")}, md: fence("mermaid", "flowchart TD\n  A --> B")},
+		{name: "fence attribute", md: "```mermaid theme=purple\nflowchart TD\n  A --> B\n```\n"},
+		{name: "empty option", opts: []diagrams.Option{diagrams.WithTheme("")}, md: fence("mermaid", "flowchart TD\n  A --> B")},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			out, err := convert(t, mustMarkdown(t, tc.opts...), tc.md)
+			if err != nil {
+				t.Fatalf("Convert: %v", err)
+			}
+			if !strings.Contains(out, `data-theme="auto"`) {
+				t.Errorf("expected data-theme=\"auto\", got:\n%s", out)
+			}
+			if n := strings.Count(out, "data-theme="); n != 1 {
+				t.Errorf("expected exactly one data-theme attribute, got %d:\n%s", n, out)
+			}
+		})
+	}
+}
+
+func TestThemeIsCaseAndSpaceInsensitive(t *testing.T) {
+	md := mustMarkdown(t, diagrams.WithTheme("  Dark "))
+	out, err := convert(t, md, fence("mermaid", "flowchart TD\n  A --> B"))
+	if err != nil {
+		t.Fatalf("Convert: %v", err)
+	}
+	if !strings.Contains(out, `data-theme="dark"`) {
+		t.Errorf("expected data-theme=\"dark\", got:\n%s", out)
+	}
+}
+
 func TestKanbanStampsColumnsAndCards(t *testing.T) {
 	md := mustMarkdown(t)
 	out, err := convert(t, md, fence("mermaid", "kanban\n  Todo\n    [Task one]\n  Done\n"))
@@ -306,6 +343,39 @@ func TestChartsStampSeries(t *testing.T) {
 	}
 	if !strings.Contains(out, `svg-mark`) || !strings.Contains(out, `svg-series-0`) {
 		t.Errorf("chart marks are not styled by a standard class:\n%s", out)
+	}
+}
+
+func TestTableRowsAndCellsAreHooked(t *testing.T) {
+	md := mustMarkdown(t)
+	spec := `{"type":"table","table":{"header":["Name","Age"],"rows":[["John","32"],["Jim","42"]]}}`
+	out, err := convert(t, md, fence("chart", spec))
+	if err != nil {
+		t.Fatalf("Convert: %v", err)
+	}
+	assertCleanOutput(t, out)
+	for _, want := range []string{
+		`data-item="header"`,
+		`data-item="John"`,
+		`data-item="Jim"`,
+		`data-item="Name" data-row="header" data-role="cell"`,
+		`data-item="Age" data-row="John" data-role="cell"`,
+		`data-item="Age" data-row="Jim" data-role="cell"`,
+		`svg-row`,
+		`svg-cell`,
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("table hook missing %q\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, `data-role="mark"`) {
+		t.Errorf("table bands are still stamped as marks:\n%s", out)
+	}
+	if got := strings.Count(out, `data-role="row"`); got != 3 {
+		t.Errorf("got %d row hooks, want 3 (header plus two rows)\n%s", got, out)
+	}
+	if got := strings.Count(out, `data-role="cell"`); got != 6 {
+		t.Errorf("got %d cell hooks, want 6\n%s", got, out)
 	}
 }
 

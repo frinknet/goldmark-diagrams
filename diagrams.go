@@ -62,7 +62,9 @@ type Config = render.Config
 type Option = render.Option
 
 // WithTheme sets the theme hint ("auto" | "light" | "dark" | "neutral") emitted
-// as data-theme on <figure> and mapped onto engine theme selection.
+// as data-theme on <figure> and mapped onto engine theme selection. Matching is
+// case-insensitive and trims surrounding whitespace; any other value, including
+// the empty string, normalizes to "auto".
 func WithTheme(theme string) Option { return func(c *Config) { c.Theme = theme } }
 
 // WithCache replaces the default in-memory LRU cache.

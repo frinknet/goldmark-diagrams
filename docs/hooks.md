@@ -11,6 +11,7 @@ node, a D2 shape, a chart mark, or a Kanban card the same way.
 | `data-item` | identifies a primary element (node, shape, mark, task, ...) |
 | `data-role` | the element's role name (see the vocabulary below) |
 | `data-series` | `0..7` series slot on multi-series chart marks |
+| `data-row` | the table row a cell belongs to |
 | `data-column-id` | Kanban column slug |
 | `data-card-id` | Kanban card identity |
 
@@ -24,7 +25,8 @@ A role is pele's own class remainder for Mermaid, or `shape` / `connection` /
 `mark` / `column` / `card` for the other engines, so the vocabulary follows the
 engine rather than a fixed list. The roles seen across the common types are
 `node`, `edge`, `cluster`, `commit`, `branch`, `task`, `slice`, `point`,
-`venn-set`, `venn-region`, `shape`, `connection`, `mark`, `column`, `card`.
+`venn-set`, `venn-region`, `shape`, `connection`, `mark`, `column`, `card`,
+`row`, `cell`.
 
 Types that name their own shapes add their own roles: `lifeline` (sequence),
 `lane` (swimlane), `rule` (railroad), `curve` (radar), `quadrant`, `legend-item`,
@@ -42,6 +44,7 @@ Each role is also emitted as a class `svg-<role>`: `svg-node`, `svg-edge`,
 | `mermaid`, `mmd` | `data-item` + `data-role` using pele's own ids; classes `svg-<role>` |
 | `d2`, `dot`, `plantuml` | `data-item` + `data-role="shape"` / `"connection"`; classes `svg-shape` / `svg-connection` |
 | `chart`, `echarts` | `data-item` (the category label, or the 1-based category number when the spec names no `labels`) + `data-series="0..7"` + `data-role="mark"`; line series use `data-role="line"` named after the series; classes `svg-mark`, `svg-line`, `svg-series-0..7` |
+| `chart` table | row bands use `data-role="row"` named after the row's first cell (`header` for the header band); cells use `data-role="cell"` named after the column header, with `data-row` naming the row; classes `svg-row` / `svg-cell` |
 | kanban | `data-column-id` + `data-role="column"`; `data-card-id` + `data-role="card"` |
 
 A hook is a real identity, not a counter: Mermaid elements use pele's ids,

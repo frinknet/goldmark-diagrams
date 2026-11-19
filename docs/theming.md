@@ -55,9 +55,11 @@ md := goldmark.New(goldmark.WithExtensions(diagrams.New(
 )))
 ```
 
-Accepted values are `auto`, `light`, `dark`, `neutral`. An unknown value is not
-rejected; it falls through to each engine's own default (tracked in
-[`../BACKLOG.md`](../BACKLOG.md)).
+Accepted values are `auto`, `light`, `dark`, `neutral`; matching ignores case
+and surrounding whitespace. Any other value, including an empty string, is
+normalized to `auto`, so `data-theme` always names the theme the engine actually
+used. A `theme=` info-string key is normalized the same way before it selects
+the engine theme and labels the figure.
 
 Info-string keys are copied to the figure as `data-<key>`, so a `theme=dark` key
 in a fence both selects the theme used for rendering and becomes the figure's

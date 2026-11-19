@@ -449,6 +449,8 @@ type hookState struct {
 	seriesByColor  map[string]int
 	seriesSeen     map[int]int
 	peleSeriesSeen map[int]int
+	tableRows      int // row bands seen in a table pass
+	tableCells     int // cell texts seen in a table pass
 }
 
 func isDefinitionContainer(name string) bool {
@@ -510,6 +512,8 @@ func dataHooks(name string, attrs []svgAttr, meta engines.Meta, state *hookState
 			hooks = append(hooks,
 				svgAttr{Name: "data-item", Value: orIndex(conn, &state.items)},
 				svgAttr{Name: "data-role", Value: "connection"})
+		case meta.Engine == engines.EngineCharts && meta.ChartType == "table":
+			hooks = append(hooks, tableHooks(name, attrs, meta, state)...)
 		case meta.Engine == engines.EngineCharts && isChartMark(name, attrs, meta):
 			hooks = append(hooks, chartHooks(attrs, meta, state)...)
 		}
@@ -528,14 +532,7 @@ func chartHooks(attrs []svgAttr, meta engines.Meta, state *hookState) []svgAttr 
 	if color == "" {
 		return nil
 	}
-	slot, ok := state.seriesByColor[color]
-	if !ok {
-		slot = len(state.seriesByColor)
-		state.seriesByColor[color] = slot
-	}
-	slot %= diagramSeriesCount
-
-	weaveSeriesVar(attrs, slot, color)
+	slot := chartSeriesSlot(attrs, color, state)
 
 	// A line series is one stroked path for the whole series: name it after
 	// the series, not after its first category.
@@ -563,6 +560,100 @@ func chartHooks(attrs []svgAttr, meta engines.Meta, state *hookState) []svgAttr 
 		{Name: "data-series", Value: strconv.Itoa(slot)},
 		{Name: "data-role", Value: "mark"},
 	}
+}
+
+// chartSeriesSlot maps a painted colour to its --diagram-series-N slot and
+// rewrites the paint so the custom property governs it.
+func chartSeriesSlot(attrs []svgAttr, color string, state *hookState) int {
+	slot, ok := state.seriesByColor[color]
+	if !ok {
+		slot = len(state.seriesByColor)
+		state.seriesByColor[color] = slot
+	}
+	slot %= diagramSeriesCount
+	weaveSeriesVar(attrs, slot, color)
+	return slot
+}
+
+// tableHooks names a table's row bands and text cells. The painter draws each
+// row as a filled band and each cell as a single <text>, so both are stamped by
+// position: a band is a row, a text is a cell of the row and column the spec's
+// header and rows put it in. Row identity is the row's first cell; a row with
+// no first cell falls back to its 1-based number, the same counter the rest of
+// the chart engine uses when no name exists.
+func tableHooks(name string, attrs []svgAttr, meta engines.Meta, state *hookState) []svgAttr {
+	switch name {
+	case "path", "rect":
+		fill := styleValue(attrs, "fill")
+		if fill == "" || strings.EqualFold(fill, "none") {
+			return nil
+		}
+		switch strings.ToLower(styleValue(attrs, "stroke")) {
+		case "", "none":
+		default:
+			// A stroked filled shape is grid or axis furniture, not a row band.
+			return nil
+		}
+		row := state.tableRows
+		state.tableRows++
+		item := "header"
+		if len(meta.TableHeader) == 0 {
+			item = tableRowItem(meta, row)
+		} else if row > 0 {
+			item = tableRowItem(meta, row-1)
+		}
+		hooks := []svgAttr{{Name: "data-item", Value: item}}
+		if color := fillColor(attrs); color != "" {
+			hooks = append(hooks, svgAttr{Name: "data-series", Value: strconv.Itoa(chartSeriesSlot(attrs, color, state))})
+		}
+		return append(hooks, svgAttr{Name: "data-role", Value: "row"})
+	case "text":
+		cols := tableColumnCount(meta)
+		if cols == 0 {
+			return nil
+		}
+		cell := state.tableCells
+		state.tableCells++
+		row, col := cell/cols, cell%cols
+		item := strconv.Itoa(col + 1)
+		if col < len(meta.TableHeader) && meta.TableHeader[col] != "" {
+			item = meta.TableHeader[col]
+		}
+		rowItem := "header"
+		switch {
+		case len(meta.TableHeader) == 0:
+			rowItem = tableRowItem(meta, row)
+		case row > 0:
+			rowItem = tableRowItem(meta, row-1)
+		}
+		return []svgAttr{
+			{Name: "data-item", Value: item},
+			{Name: "data-row", Value: rowItem},
+			{Name: "data-role", Value: "cell"},
+		}
+	}
+	return nil
+}
+
+// tableColumnCount is the column count every table row is divided by, taken
+// from the header or, when there is none, the widest data row.
+func tableColumnCount(meta engines.Meta) int {
+	cols := len(meta.TableHeader)
+	for _, row := range meta.TableRows {
+		if len(row) > cols {
+			cols = len(row)
+		}
+	}
+	return cols
+}
+
+// tableRowItem names a data row after its first cell. The index is zero-based
+// into the spec's rows.
+func tableRowItem(meta engines.Meta, row int) string {
+	if row >= 0 && row < len(meta.TableRows) && len(meta.TableRows[row]) > 0 && meta.TableRows[row][0] != "" {
+		return meta.TableRows[row][0]
+	}
+	return strconv.Itoa(row + 1)
 }
 
 // peleContainers are grouping elements that wrap items rather than being items.
@@ -1153,9 +1244,24 @@ var figureAttrs = map[string]bool{
 // figure.
 func fenceTheme(configured string, attrs map[string]string) string {
 	if t := strings.TrimSpace(attrs["theme"]); t != "" {
-		return t
+		return normalizeTheme(t)
 	}
-	return configured
+	return normalizeTheme(configured)
+}
+
+// themeNames are the theme hints every engine understands. Any other value
+// normalizes to "auto" so the figure label matches the engine defaults that
+// were actually used.
+var themeNames = map[string]bool{
+	"auto": true, "light": true, "dark": true, "neutral": true,
+}
+
+func normalizeTheme(theme string) string {
+	theme = strings.ToLower(strings.TrimSpace(theme))
+	if themeNames[theme] {
+		return theme
+	}
+	return "auto"
 }
 
 // buildFigure wraps a normalized svg in the standardized <figure> element and
@@ -1165,7 +1271,7 @@ func buildFigure(svg string, meta engines.Meta) string {
 	b.WriteString(`<figure class="svg-diagram"`)
 	writeAttr(&b, "data-lang", meta.Lang)
 	writeAttr(&b, "data-engine", meta.Engine)
-	writeAttr(&b, "data-theme", themeOrDefault(meta.Theme))
+	writeAttr(&b, "data-theme", normalizeTheme(meta.Theme))
 	writeAttr(&b, "data-hash", cache.ShortHash(svg))
 	for _, k := range sortedKeys(meta.Attrs) {
 		name := sanitizeAttrName(k)
@@ -1184,13 +1290,6 @@ func buildFigure(svg string, meta engines.Meta) string {
 
 func writeAttr(b *strings.Builder, name, value string) {
 	fmt.Fprintf(b, ` %s="%s"`, name, html.EscapeString(value))
-}
-
-func themeOrDefault(theme string) string {
-	if theme == "" {
-		return "auto"
-	}
-	return theme
 }
 
 func sortedKeys(m map[string]string) []string {
@@ -1277,6 +1376,8 @@ func Fragment(ctx context.Context, cfg *Config, lang, source string, attrs map[s
 		meta.Labels = res.Labels
 		meta.Names = res.Names
 		meta.ChartType = res.ChartType
+		meta.TableHeader = res.TableHeader
+		meta.TableRows = res.TableRows
 		meta.Width, meta.Height = res.Width, res.Height
 		if res.SVG, err = NormalizeSVG(res.SVG, meta); err != nil {
 			res.SVG = ""
