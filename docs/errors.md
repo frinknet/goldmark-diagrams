@@ -56,10 +56,11 @@ class="svg-diagram-svg svg-diagram-error" role="img">` wrapped in the normal
 - a Mermaid / D2 / DOT / PlantUML parse or layout failure,
 - a canceled or expired context (`WithTimeout`, default `5s`).
 
-Line numbers are only reported when the fence's byte offset is recoverable; CRLF
-input and a fence at offset 0 are untested. D2 has no internal cancellation
-checkpoints, so a pathological D2 source can overrun the timeout before it
-notices. Both gaps are tracked in [`../BACKLOG.md`](../BACKLOG.md).
+Line numbers are reported when the fence's byte offset is recoverable, including
+CRLF input and a fence at offset 0. D2's compiler has no internal cancellation
+checkpoints, so a pathological D2 source can outlive the deadline; the renderer
+stops waiting when the context ends and renders an error card, though the
+compile may continue in the background.
 
 ## See also
 

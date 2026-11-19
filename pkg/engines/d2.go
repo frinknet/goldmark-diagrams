@@ -55,23 +55,47 @@ func renderD2(ctx context.Context, meta Meta, source string) (*RenderResult, err
 	if dctx == nil {
 		dctx = context.Background()
 	}
-	diagram, _, err := d2lib.Compile(dctx, source, compileOpts, renderOpts)
-	if err != nil {
-		return nil, err
+
+	// D2's compiler has no internal cancellation checkpoints, so a pathological
+	// source can outlive the caller's deadline. Compile in a goroutine and
+	// return as soon as the context ends; the abandoned goroutine still runs to
+	// completion but no longer blocks the caller.
+	type d2Result struct {
+		svg string
+		err error
 	}
-	out, err := d2svg.Render(diagram, renderOpts)
-	if err != nil {
-		return nil, err
+	done := make(chan d2Result, 1)
+	go func() {
+		diagram, _, err := d2lib.Compile(dctx, source, compileOpts, renderOpts)
+		if err != nil {
+			done <- d2Result{err: err}
+			return
+		}
+		out, err := d2svg.Render(diagram, renderOpts)
+		if err != nil {
+			done <- d2Result{err: err}
+			return
+		}
+		done <- d2Result{svg: string(out)}
+	}()
+
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case r := <-done:
+		if r.err != nil {
+			return nil, r.err
+		}
+		svg := r.svg
+		if i := strings.Index(svg, "<svg"); i >= 0 {
+			svg = svg[i:]
+		} else {
+			return nil, &engineError{"d2 produced no <svg> element"}
+		}
+		var w, h float64
+		if vb := parseViewBox(svg); vb != nil {
+			w, h = vb[2], vb[3]
+		}
+		return &RenderResult{SVG: svg, Engine: EngineD2, Width: w, Height: h}, nil
 	}
-	svg := string(out)
-	if i := strings.Index(svg, "<svg"); i >= 0 {
-		svg = svg[i:]
-	} else {
-		return nil, &engineError{"d2 produced no <svg> element"}
-	}
-	var w, h float64
-	if vb := parseViewBox(svg); vb != nil {
-		w, h = vb[2], vb[3]
-	}
-	return &RenderResult{SVG: svg, Engine: EngineD2, Width: w, Height: h}, nil
 }

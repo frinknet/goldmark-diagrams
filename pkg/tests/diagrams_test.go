@@ -153,6 +153,31 @@ func TestNeverFailOnInvalidSyntax(t *testing.T) {
 	}
 }
 
+func TestErrorCardReportsSourceLine(t *testing.T) {
+	cases := []struct {
+		name string
+		src  string
+		want string
+	}{
+		{"fence at offset 0", "```d2\na -> -> b\n```\n", "diagram failed: d2, line 1"},
+		{"fence after a paragraph", "hello\n\n```d2\na -> -> b\n```\n", "diagram failed: d2, line 3"},
+		{"crlf fence at offset 0", "```d2\r\na -> -> b\r\n```\r\n", "diagram failed: d2, line 1"},
+		{"crlf fence after a paragraph", "hello\r\n\r\n```d2\r\na -> -> b\r\n```\r\n", "diagram failed: d2, line 3"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			md := mustMarkdown(t)
+			out, err := convert(t, md, tc.src)
+			if err != nil {
+				t.Fatalf("Convert: %v", err)
+			}
+			if !strings.Contains(out, tc.want) {
+				t.Errorf("error card missing %q:\n%s", tc.want, out)
+			}
+		})
+	}
+}
+
 func TestErrorModeCodeBlock(t *testing.T) {
 	md := mustMarkdown(t, diagrams.WithErrorMode(diagrams.ErrorCodeBlock))
 	out, err := convert(t, md, fence("mermaid", "flowchart TD\n  A[["))
@@ -492,19 +517,59 @@ func TestD2PaletteIsMappedToSharedVariables(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Convert: %v", err)
 	}
-	for _, want := range []string{
-		"var(--diagram-bg,",
-		"var(--diagram-fg,",
-		"var(--diagram-border,",
-		"var(--diagram-accent,",
-		"var(--diagram-surface,",
-	} {
-		if !strings.Contains(out, want) {
-			t.Errorf("d2 palette not mapped: missing %q", want)
-		}
+	// A theme that renames its palette classes would leave raw hex rules
+	// behind. Pin the role mapping so a rename fails loudly instead of
+	// silently losing the shared --diagram-* theming.
+	if raw := regexp.MustCompile(`\.(fill|stroke)-[A-Za-z0-9]+\{(fill|stroke):#[0-9A-Fa-f]+`).FindString(out); raw != "" {
+		t.Errorf("d2 palette rule not rewritten: %s", raw)
 	}
-	if strings.Contains(out, ".fill-N7{fill:#") {
-		t.Errorf("d2 neutral ramp was not rewritten:\n%s", out)
+	for _, tc := range []struct {
+		class, want string
+	}{
+		{".fill-N1", "var(--diagram-fg,"},
+		{".fill-N2", "var(--diagram-muted,"},
+		{".fill-N3", "var(--diagram-border,"},
+		{".fill-N4", "var(--diagram-border,"},
+		{".fill-N5", "var(--diagram-surface-alt,"},
+		{".fill-N6", "var(--diagram-surface,"},
+		{".fill-N7", "var(--diagram-bg,"},
+		{".fill-B1", "var(--diagram-accent,"},
+		{".fill-B2", "var(--diagram-accent,"},
+		{".fill-B3", "var(--diagram-border,"},
+		{".fill-B4", "var(--diagram-surface-alt,"},
+		{".fill-B5", "var(--diagram-surface,"},
+		{".fill-B6", "var(--diagram-surface,"},
+		{".fill-AA2", "var(--diagram-accent,"},
+		{".fill-AA4", "var(--diagram-surface-alt,"},
+		{".fill-AA5", "var(--diagram-surface,"},
+		{".fill-AB4", "var(--diagram-surface-alt,"},
+		{".fill-AB5", "var(--diagram-surface,"},
+		{".stroke-N1", "var(--diagram-border,"},
+		{".stroke-N2", "var(--diagram-muted,"},
+		{".stroke-N3", "var(--diagram-border,"},
+		{".stroke-N4", "var(--diagram-border,"},
+		{".stroke-N5", "var(--diagram-border,"},
+		{".stroke-N6", "var(--diagram-border,"},
+		{".stroke-N7", "var(--diagram-border,"},
+		{".stroke-B1", "var(--diagram-accent,"},
+		{".stroke-B2", "var(--diagram-accent,"},
+		{".stroke-B3", "var(--diagram-border,"},
+		{".stroke-B4", "var(--diagram-surface-alt,"},
+		{".stroke-B5", "var(--diagram-surface,"},
+		{".stroke-B6", "var(--diagram-surface,"},
+		{".stroke-AA2", "var(--diagram-accent,"},
+		{".stroke-AA4", "var(--diagram-surface-alt,"},
+		{".stroke-AA5", "var(--diagram-surface,"},
+		{".stroke-AB4", "var(--diagram-surface-alt,"},
+		{".stroke-AB5", "var(--diagram-surface,"},
+	} {
+		prop := "fill"
+		if strings.HasPrefix(tc.class, ".stroke-") {
+			prop = "stroke"
+		}
+		if !strings.Contains(out, tc.class+"{"+prop+":"+tc.want) {
+			t.Errorf("d2 palette class %s no longer maps to %s", tc.class, tc.want)
+		}
 	}
 }
 
@@ -562,6 +627,18 @@ func TestRenderStandaloneWithCanceledContext(t *testing.T) {
 	}
 	if !strings.Contains(out, "svg-diagram-error") {
 		t.Errorf("expected an error card for a canceled render:\n%s", out)
+	}
+}
+
+func TestRenderStandaloneWithCanceledContextD2(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	out, err := diagrams.RenderStandalone(ctx, "d2", "a -> b")
+	if err != nil {
+		t.Fatalf("canceled render must not fail markdown: %v", err)
+	}
+	if !strings.Contains(out, "svg-diagram-error") {
+		t.Errorf("expected an error card for a canceled d2 render:\n%s", out)
 	}
 }
 
