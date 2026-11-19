@@ -28,6 +28,6 @@ Shapes paint through pele's `--pele-*` custom properties, which `pkg/render/norm
 ## Caveats
 
 - An unsupported construct renders the 600x120 `svg-diagram-error` card instead of failing `markdown.Convert()`; only `ErrorFail` mode returns an error.
-- Edges are only hooked when pele gives them an id; connectors with no id have no per-connection handle (see `BACKLOG.md`).
+- A connector pele gives no id is named after the two items its path joins (`source->target`).
 
 > Coverage: no golden fixture yet; see `BACKLOG.md`.

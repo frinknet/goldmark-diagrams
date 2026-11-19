@@ -299,6 +299,12 @@ func TestEveryTypeCarriesTheSharedHooks(t *testing.T) {
 			wantAll: []string{`data-item="Jan"`, `data-item="Feb"`, `data-role="bar"`, `data-role="point"`, `data-role="line"`, `svg-bar`, `svg-point`, `svg-line`},
 		},
 		{
+			name:    "mermaid-mindmap",
+			lang:    "mermaid",
+			source:  "mindmap\n  root((R))\n    child",
+			wantAll: []string{`data-item="root"`, `data-item="child"`, `data-item="root-&gt;child"`, `data-role="edge"`, `svg-edge`},
+		},
+		{
 			name:    "mermaid-info",
 			lang:    "mermaid",
 			source:  "info showInfo",

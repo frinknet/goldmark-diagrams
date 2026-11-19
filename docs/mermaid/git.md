@@ -22,7 +22,7 @@ gitGraph
 
 ## Output
 
-One `<figure class="svg-diagram" data-lang="mermaid" data-engine="pele" data-theme="auto" data-hash="...">` around one inline `<svg viewBox="..." class="svg-diagram-svg" role="img">`. Commits carry `data-item` + `data-role="commit"` (class `svg-commit`); branches carry `data-item` + `data-role="branch"` (class `svg-branch`). Stamped groups get a `<title>` child for zero-JS hover tooltips.
+One `<figure class="svg-diagram" data-lang="mermaid" data-engine="pele" data-theme="auto" data-hash="...">` around one inline `<svg viewBox="..." class="svg-diagram-svg" role="img">`. Commits carry `data-item` + `data-role="commit"` (class `svg-commit`); branches carry `data-item` + `data-role="branch"` (class `svg-branch`); commit-to-commit edges carry no pele id, so they are named after their endpoints (`a1->b2`, class `svg-edge`). Stamped groups get a `<title>` child for zero-JS hover tooltips.
 
 ## Theming
 

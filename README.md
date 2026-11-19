@@ -107,7 +107,7 @@ stylesheet can style all of them:
 
 | Diagram | Hooks and classes |
 | --- | --- |
-| `mermaid`, `mmd` | `data-item` + `data-role` using pele's own ids; the role follows pele's class (`node`, `edge`, `commit`, `task`, `lifeline`, `sankey-node`, ...) and is echoed as class `svg-<role>` |
+| `mermaid`, `mmd` | `data-item` + `data-role` using pele's own ids; a connector pele gives no id is named after its two endpoints (e.g. `a1->b2`); the role follows pele's class (`node`, `edge`, `commit`, `task`, `lifeline`, `sankey-node`, ...) and is echoed as class `svg-<role>` |
 | Mermaid XY chart | `data-item` (the x-axis category) + `data-series="0..7"` + `data-role="bar"`, `"point"` or `"line"`; classes `svg-bar`, `svg-point`, `svg-line` |
 | Mermaid info | `data-item` (the rendered version text) + `data-role="version"`; class `svg-version` |
 | `d2`, `dot`, `plantuml` | `data-item` + `data-role="shape"` (shape label) or `data-role="connection"` (named by its endpoints, e.g. `orders->users`); classes `svg-shape`, `svg-connection` |

@@ -28,4 +28,4 @@ Set circles, overlap regions and labels read the shared palette — `--diagram-s
 
 ## Caveats
 
-An unsupported construct renders the 600x120 `svg-diagram-error` card instead of breaking conversion; only `ErrorFail` makes `Markdown.Convert()` return an error. Venn connectors have no per-connection hook: pele qualifies an edge only when it exposes an id, and venn connectors do not (see `BACKLOG.md`).
+An unsupported construct renders the 600x120 `svg-diagram-error` card instead of breaking conversion; only `ErrorFail` makes `Markdown.Convert()` return an error.

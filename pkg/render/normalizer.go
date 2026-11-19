@@ -313,6 +313,11 @@ func stampInteractive(body string, meta engines.Meta) string {
 		seriesSeen:     map[int]int{},
 		peleSeriesSeen: map[int]int{},
 	}
+	if meta.Engine == engines.EnginePele {
+		// pele draws every connector before the items it joins, so the ids a
+		// connector has to be named after must be collected in a first pass.
+		state.anchors = peleAnchors(body)
+	}
 	// stack[i] records whether the element at that depth is a defs-only
 	// container (marker, mask, ...) or already carries a data-item hook, so
 	// nested drawing primitives are not stamped a second time.
@@ -418,6 +423,8 @@ func stampInteractive(body string, meta engines.Meta) string {
 				series:      parent.series,
 				seriesIndex: parent.seriesIndex,
 				seriesID:    parent.seriesID,
+				dx:          parent.dx + transformOffset(attrValue(attrs, "transform"), true),
+				dy:          parent.dy + transformOffset(attrValue(attrs, "transform"), false),
 			}
 			if kind := peleSeriesKind(classTokens(attrs)); kind != "" {
 				state.seriesCount++
@@ -434,12 +441,13 @@ func stampInteractive(body string, meta engines.Meta) string {
 
 // hookFrame tracks whether stamped hooks or definitions enclose the next element.
 type hookFrame struct {
-	closed      bool   // an ancestor is a stamped item, so children are its drawings
-	defs        bool   // inside <defs>, <marker>, <mask>, ... (never drawn directly)
-	owner       string // the D2 id of the element whose group encloses this one
-	series      string // pele xychart series under construction: "bars" or "line"
-	seriesIndex int    // 1-based order of that series in the chart
-	seriesID    string // the series title pele puts in data-id, when it has one
+	closed      bool    // an ancestor is a stamped item, so children are its drawings
+	defs        bool    // inside <defs>, <marker>, <mask>, ... (never drawn directly)
+	owner       string  // the D2 id of the element whose group encloses this one
+	series      string  // pele xychart series under construction: "bars" or "line"
+	seriesIndex int     // 1-based order of that series in the chart
+	seriesID    string  // the series title pele puts in data-id, when it has one
+	dx, dy      float64 // translate() offsets of the ancestors, so local path coordinates match absolute anchors
 }
 
 // hookState carries the counters a single stamping pass needs.
@@ -451,6 +459,15 @@ type hookState struct {
 	peleSeriesSeen map[int]int
 	tableRows      int // row bands seen in a table pass
 	tableCells     int // cell texts seen in a table pass
+	anchors        []diagramAnchor
+	edgeSeen       map[string]int // duplicate derived edges, named pair[1], pair[2]
+}
+
+// diagramAnchor is a named point pele draws a connector to or from: the centre
+// of an item that carries a pele id.
+type diagramAnchor struct {
+	item string
+	x, y float64
 }
 
 func isDefinitionContainer(name string) bool {
@@ -496,6 +513,14 @@ func dataHooks(name string, attrs []svgAttr, meta engines.Meta, state *hookState
 			hooks = append(hooks,
 				svgAttr{Name: "data-item", Value: dataID},
 				svgAttr{Name: "data-role", Value: peleItemRole(classes, dataID)})
+		case hasClass(classes, "pele-edge") && dataID == "":
+			// Mindmap and gitgraph connectors carry no id of their own; name
+			// them after the two items their geometry runs between.
+			if item := peleEdgeItem(attrs, state, parent); item != "" {
+				hooks = append(hooks,
+					svgAttr{Name: "data-item", Value: item},
+					svgAttr{Name: "data-role", Value: "edge"})
+			}
 		case parent.closed:
 			// A drawing primitive inside an already-stamped item is part of that
 			// item, not an item of its own: D2 puts the shape's rect and path
@@ -748,6 +773,214 @@ func peleItemRole(classes []string, dataID string) string {
 		}
 		if best == "" || len(rest) < len(best) {
 			best = rest
+		}
+	}
+	return best
+}
+
+// peleAnchors collects the centre of every pele item that has both an id and a
+// position, so a connector drawn before its items can still be named after the
+// two it joins. An item is placed either by its own transform (a node group or a
+// commit lane) or by the geometry of the shape it draws (a circle, an ellipse, a
+// rect). Enclosing transforms are summed, so a nested group's coordinates are
+// compared in the same space as the connector's path.
+func peleAnchors(body string) []diagramAnchor {
+	var anchors []diagramAnchor
+	seen := map[string]bool{}
+	type frame struct {
+		dx, dy float64
+		item   string
+	}
+	var stack []frame
+	dx, dy, item := 0.0, 0.0, ""
+	add := func(at diagramAnchor) {
+		if at.item == "" || seen[at.item] {
+			return
+		}
+		seen[at.item] = true
+		anchors = append(anchors, at)
+	}
+
+	i := 0
+	for i < len(body) {
+		lt := strings.IndexByte(body[i:], '<')
+		if lt < 0 {
+			break
+		}
+		lt += i
+		if lt+1 < len(body) && (body[lt+1] == '/' || body[lt+1] == '?') {
+			end := tagEndFrom(body, lt)
+			if end < 0 {
+				break
+			}
+			if body[lt+1] == '/' && len(stack) > 0 {
+				dx, dy, item = stack[len(stack)-1].dx, stack[len(stack)-1].dy, stack[len(stack)-1].item
+				stack = stack[:len(stack)-1]
+			}
+			i = end + 1
+			continue
+		}
+		if strings.HasPrefix(body[lt:], "<![CDATA[") {
+			if end := strings.Index(body[lt:], "]]>"); end >= 0 {
+				i = lt + end + 3
+			} else {
+				break
+			}
+			continue
+		}
+		if strings.HasPrefix(body[lt:], "<!--") {
+			if end := strings.Index(body[lt:], "-->"); end >= 0 {
+				i = lt + end + 3
+			} else {
+				break
+			}
+			continue
+		}
+		end := tagEndFrom(body, lt)
+		if end < 0 {
+			break
+		}
+		name, attrs := parseOpenTag(body[lt:end])
+		if name == "style" || name == "script" {
+			if rel := strings.Index(body[end+1:], "</"+name+">"); rel >= 0 {
+				i = end + 1 + rel + len(name) + 3
+			} else {
+				break
+			}
+			continue
+		}
+
+		nextDX, nextDY := dx+transformOffset(attrValue(attrs, "transform"), true), dy+transformOffset(attrValue(attrs, "transform"), false)
+		nextItem := item
+		if id := attrValue(attrs, "data-id"); id != "" {
+			nextItem = id
+			if tr := attrValue(attrs, "transform"); strings.Contains(tr, "translate") {
+				add(diagramAnchor{item: id, x: nextDX, y: nextDY})
+			}
+		}
+		if c, ok := shapeCentre(name, attrs); ok {
+			add(diagramAnchor{item: nextItem, x: nextDX + c[0], y: nextDY + c[1]})
+		}
+
+		if !strings.HasSuffix(strings.TrimSpace(body[lt:end]), "/") {
+			stack = append(stack, frame{dx: dx, dy: dy, item: item})
+			dx, dy, item = nextDX, nextDY, nextItem
+		}
+		i = end + 1
+	}
+	return anchors
+}
+
+// transformOffset returns the tx (x=true) or ty of every translate() in a
+// transform attribute, summed. Scales and rotations are ignored: pele only
+// translates item geometry, and the labels that rotate are not anchors.
+func transformOffset(transform string, x bool) float64 {
+	total := 0.0
+	rest := transform
+	for {
+		rel := strings.Index(rest, "translate(")
+		if rel < 0 {
+			return total
+		}
+		rest = rest[rel+len("translate("):]
+		close := strings.IndexByte(rest, ')')
+		if close < 0 {
+			return total
+		}
+		nums := numberList(rest[:close])
+		rest = rest[close:]
+		switch len(nums) {
+		case 0:
+		case 1:
+			if x {
+				total += nums[0]
+			}
+		default:
+			if x {
+				total += nums[0]
+			} else {
+				total += nums[1]
+			}
+		}
+	}
+}
+
+// shapeCentre returns the centre of a positioned shape relative to its nearest
+// transformed ancestor.
+func shapeCentre(name string, attrs []svgAttr) ([2]float64, bool) {
+	length := func(n string) (float64, bool) {
+		v := strings.TrimSpace(attrValue(attrs, n))
+		f, err := strconv.ParseFloat(v, 64)
+		return f, err == nil
+	}
+	switch name {
+	case "circle", "ellipse":
+		cx, okX := length("cx")
+		cy, okY := length("cy")
+		if okX && okY {
+			return [2]float64{cx, cy}, true
+		}
+	case "rect":
+		rx, okX := length("x")
+		ry, okY := length("y")
+		w, okW := length("width")
+		h, okH := length("height")
+		if okX && okY && okW && okH {
+			return [2]float64{rx + w/2, ry + h/2}, true
+		}
+	}
+	return [2]float64{}, false
+}
+
+// numberList parses the numbers of a coordinate list ("1,2 -3,4").
+var numberRE = regexp.MustCompile(`-?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?`)
+
+func numberList(s string) []float64 {
+	matches := numberRE.FindAllString(s, -1)
+	nums := make([]float64, 0, len(matches))
+	for _, m := range matches {
+		if f, err := strconv.ParseFloat(m, 64); err == nil {
+			nums = append(nums, f)
+		}
+	}
+	return nums
+}
+
+// peleEdgeItem names a connector without an id after the two anchors nearest
+// its path's start and end. Repeated pairs get an index, like D2's
+// alpha->beta[1], so every hook stays a real identity.
+func peleEdgeItem(attrs []svgAttr, state *hookState, parent hookFrame) string {
+	nums := numberList(attrValue(attrs, "d"))
+	if len(nums) < 4 || len(state.anchors) == 0 {
+		return ""
+	}
+	x0, y0 := nums[0]+parent.dx, nums[1]+parent.dy
+	x1, y1 := nums[len(nums)-2]+parent.dx, nums[len(nums)-1]+parent.dy
+	src := nearestAnchor(state.anchors, x0, y0)
+	dst := nearestAnchor(state.anchors, x1, y1)
+	if src == "" || dst == "" {
+		return ""
+	}
+	pair := src + "->" + dst
+	if state.edgeSeen == nil {
+		state.edgeSeen = map[string]int{}
+	}
+	n := state.edgeSeen[pair]
+	state.edgeSeen[pair] = n + 1
+	if n > 0 {
+		return pair + "[" + strconv.Itoa(n) + "]"
+	}
+	return pair
+}
+
+// nearestAnchor returns the item whose centre is closest to (x, y).
+func nearestAnchor(anchors []diagramAnchor, x, y float64) string {
+	best := ""
+	bestDist := math.MaxFloat64
+	for _, a := range anchors {
+		d := (a.x-x)*(a.x-x) + (a.y-y)*(a.y-y)
+		if d < bestDist {
+			best, bestDist = a.item, d
 		}
 	}
 	return best
