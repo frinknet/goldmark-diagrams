@@ -52,8 +52,7 @@ Shapes and connections carry the shared D2 hooks, `data-role="shape"` /
 
 DOT support is a transliteration, not a full Graphviz implementation: only the
 constructs in the table are translated. `record`/HTML labels, edge ports, and
-multi-rank tricks are not claimed. Known gaps are tracked in
-[`../../BACKLOG.md`](../../BACKLOG.md).
+multi-rank tricks are not claimed.
 
 ## See also
 

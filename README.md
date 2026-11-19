@@ -5,9 +5,9 @@ fenced diagram and chart code blocks into a single, standardized, responsive,
 CSS-interactive `<svg>` output, with optional `data-*` hooks for server-backed
 interactivity (Kanban card moves, chart drill-downs).
 
-See [`spec.md`](./spec.md) for the authoritative engineering specification and
-[`BACKLOG.md`](./BACKLOG.md) for the known gap between the two. Per-type guides
-and the contract reference live in [`docs/`](./docs/README.md).
+See [`spec.md`](./spec.md) for the authoritative engineering specification.
+Per-type guides and the contract reference live in
+[`docs/`](./docs/README.md).
 
 ## Status
 
@@ -18,8 +18,6 @@ golden fixtures for all twelve chart types, Kanban, Mindmap, Venn, Gantt,
 GitGraph, flowchart and clustered flowchart, D2 ERD, PlantUML
 sequence/gantt/mindmap, and Graphviz DOT, including the `mmd`, `echarts`,
 `puml` and `graphviz` alias fences.
-Caddy integration and the interactive database demo live outside this repository;
-see [`BACKLOG.md`](./BACKLOG.md).
 
 ## Core constraints
 

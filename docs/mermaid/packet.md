@@ -29,4 +29,4 @@ Field cells and their labels read the shared palette — `--diagram-surface`, `-
 
 An unsupported construct renders the 600x120 `svg-diagram-error` card instead of breaking conversion; only `ErrorFail` makes `Markdown.Convert()` return an error.
 
-> Coverage: no golden fixture yet; see `BACKLOG.md`.
+> Coverage: no golden fixture yet.

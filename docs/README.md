@@ -61,5 +61,4 @@ known limits.
 | Content-addressed caching | [caching](./caching.md) |
 | Options and `RenderStandalone` | [API](./api.md) |
 
-Known gaps between these pages and the specification are tracked in
-[`../BACKLOG.md`](../BACKLOG.md); `../spec.md` is the authoritative target.
+[`../spec.md`](../spec.md) is the authoritative target.

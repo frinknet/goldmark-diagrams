@@ -76,8 +76,7 @@ Mindmap (to pele/Mermaid):
 
 The transpiler covers a subset of PlantUML: declaration keywords, grouping
 blocks (`alt`/`opt`/`loop`/`par`/...), and sequences are handled; unsupported
-statements are skipped. Known gaps are tracked in
-[`../../BACKLOG.md`](../../BACKLOG.md).
+statements are skipped.
 
 ## See also
 
