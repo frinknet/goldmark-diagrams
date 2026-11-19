@@ -61,6 +61,7 @@ func NormalizeSVG(rawSVG string, meta engines.Meta) (string, error) {
 	body = stampInteractive(body, meta)
 	switch meta.Engine {
 	case engines.EnginePele:
+		body = nameVersionItems(body)
 		body = insertTitles(body)
 	case engines.EngineD2:
 		body = nameD2Items(body)
@@ -308,8 +309,9 @@ func engineVarAliases(engine string) string {
 func stampInteractive(body string, meta engines.Meta) string {
 	var out strings.Builder
 	state := &hookState{
-		seriesByColor: map[string]int{},
-		seriesSeen:    map[int]int{},
+		seriesByColor:  map[string]int{},
+		seriesSeen:     map[int]int{},
+		peleSeriesSeen: map[int]int{},
 	}
 	// stack[i] records whether the element at that depth is a defs-only
 	// container (marker, mask, ...) or already carries a data-item hook, so
@@ -379,18 +381,18 @@ func stampInteractive(body string, meta engines.Meta) string {
 			continue
 		}
 
-		nested := len(stack) > 0 && stack[len(stack)-1].closed
-		inDefs := len(stack) > 0 && stack[len(stack)-1].defs
-		owner := ""
+		parent := hookFrame{}
 		if len(stack) > 0 {
-			owner = stack[len(stack)-1].owner
+			parent = stack[len(stack)-1]
 		}
+		inDefs := parent.defs
+		owner := parent.owner
 		if meta.Engine == engines.EngineD2 {
 			if id := d2OwnerID(name, attrs); id != "" {
 				owner = id
 			}
 		}
-		injected := dataHooks(name, attrs, meta, state, nested, inDefs, owner)
+		injected := dataHooks(name, attrs, meta, state, parent, inDefs)
 		for _, a := range injected {
 			switch a.Name {
 			case "data-role":
@@ -409,11 +411,21 @@ func stampInteractive(body string, meta engines.Meta) string {
 		out.WriteByte('>')
 
 		if !strings.HasSuffix(strings.TrimSpace(body[lt:end]), "/") {
-			stack = append(stack, hookFrame{
-				closed: nested || len(injected) > 0,
-				defs:   inDefs || isDefinitionContainer(name),
-				owner:  owner,
-			})
+			frame := hookFrame{
+				closed:      parent.closed || len(injected) > 0,
+				defs:        inDefs || isDefinitionContainer(name),
+				owner:       owner,
+				series:      parent.series,
+				seriesIndex: parent.seriesIndex,
+				seriesID:    parent.seriesID,
+			}
+			if kind := peleSeriesKind(classTokens(attrs)); kind != "" {
+				state.seriesCount++
+				frame.series = kind
+				frame.seriesIndex = state.seriesCount
+				frame.seriesID = attrValue(attrs, "data-id")
+			}
+			stack = append(stack, frame)
 		}
 		i = end + 1
 	}
@@ -422,16 +434,21 @@ func stampInteractive(body string, meta engines.Meta) string {
 
 // hookFrame tracks whether stamped hooks or definitions enclose the next element.
 type hookFrame struct {
-	closed bool   // an ancestor is a stamped item, so children are its drawings
-	defs   bool   // inside <defs>, <marker>, <mask>, ... (never drawn directly)
-	owner  string // the D2 id of the element whose group encloses this one
+	closed      bool   // an ancestor is a stamped item, so children are its drawings
+	defs        bool   // inside <defs>, <marker>, <mask>, ... (never drawn directly)
+	owner       string // the D2 id of the element whose group encloses this one
+	series      string // pele xychart series under construction: "bars" or "line"
+	seriesIndex int    // 1-based order of that series in the chart
+	seriesID    string // the series title pele puts in data-id, when it has one
 }
 
 // hookState carries the counters a single stamping pass needs.
 type hookState struct {
-	items         int
-	seriesByColor map[string]int
-	seriesSeen    map[int]int
+	items          int
+	seriesCount    int
+	seriesByColor  map[string]int
+	seriesSeen     map[int]int
+	peleSeriesSeen map[int]int
 }
 
 func isDefinitionContainer(name string) bool {
@@ -442,10 +459,10 @@ func isDefinitionContainer(name string) bool {
 	return false
 }
 
-// dataHooks decides which data-* attributes an element earns. owner is the D2
-// id of the enclosing element group, which names connections after their
-// endpoints; every other engine leaves it empty.
-func dataHooks(name string, attrs []svgAttr, meta engines.Meta, state *hookState, nested, inDefs bool, owner string) []svgAttr {
+// dataHooks decides which data-* attributes an element earns. parent carries
+// the enclosing D2 id (which names connections after their endpoints) and the
+// pele series an xychart mark belongs to; every other engine leaves them empty.
+func dataHooks(name string, attrs []svgAttr, meta engines.Meta, state *hookState, parent hookFrame, inDefs bool) []svgAttr {
 	if inDefs {
 		return nil
 	}
@@ -468,12 +485,16 @@ func dataHooks(name string, attrs []svgAttr, meta engines.Meta, state *hookState
 			hooks = append(hooks, svgAttr{Name: "data-role", Value: "card"})
 		}
 	default:
+		if series := peleSeriesHooks(name, meta, state, parent); len(series) > 0 {
+			hooks = append(hooks, series...)
+			break
+		}
 		switch {
 		case peleItemRole(classes, dataID) != "":
 			hooks = append(hooks,
 				svgAttr{Name: "data-item", Value: dataID},
 				svgAttr{Name: "data-role", Value: peleItemRole(classes, dataID)})
-		case nested:
+		case parent.closed:
 			// A drawing primitive inside an already-stamped item is part of that
 			// item, not an item of its own: D2 puts the shape's rect and path
 			// inside the group that already carries the hook.
@@ -482,10 +503,10 @@ func dataHooks(name string, attrs []svgAttr, meta engines.Meta, state *hookState
 			// A shape is renamed to its label after stamping; until then its D2
 			// id keeps the hook a real identity.
 			hooks = append(hooks,
-				svgAttr{Name: "data-item", Value: orIndex(slug(owner), &state.items)},
+				svgAttr{Name: "data-item", Value: orIndex(slug(parent.owner), &state.items)},
 				svgAttr{Name: "data-role", Value: "shape"})
 		case hasClass(classes, "connection"):
-			conn, _ := d2ConnectionItem(owner)
+			conn, _ := d2ConnectionItem(parent.owner)
 			hooks = append(hooks,
 				svgAttr{Name: "data-item", Value: orIndex(conn, &state.items)},
 				svgAttr{Name: "data-role", Value: "connection"})
@@ -535,6 +556,66 @@ var peleContainers = map[string]bool{
 	"pele-axis-labels": true, "pele-cluster-titles": true, "pele-sections": true,
 	"pele-grids": true, "pele-tracks": true, "pele-players": true, "pele-lines": true,
 	"pele-legends": true, "pele-stems": true,
+}
+
+// peleSeriesKind reports which kind of pele xychart series a group opens, or ""
+// when it is not one. XY-chart series are the one pele shape that carries no
+// per-mark id, so the marks inside them are named here.
+func peleSeriesKind(classes []string) string {
+	if !hasClass(classes, "pele-series") {
+		return ""
+	}
+	switch {
+	case hasClass(classes, "pele-bars"):
+		return "bars"
+	case hasClass(classes, "pele-line"):
+		return "line"
+	}
+	return ""
+}
+
+// peleSeriesHooks names an xychart mark with its category label and series
+// slot. A line's polyline carries the series title when the plot declares one.
+func peleSeriesHooks(name string, meta engines.Meta, state *hookState, parent hookFrame) []svgAttr {
+	if parent.series == "" {
+		return nil
+	}
+	role := ""
+	switch {
+	case parent.series == "bars" && name == "rect":
+		role = "bar"
+	case parent.series == "line" && name == "circle":
+		role = "point"
+	case parent.series == "line" && name == "path":
+		item := parent.seriesID
+		if item == "" {
+			item = "line"
+		}
+		return seriesHooks(item, parent.seriesIndex, "line")
+	default:
+		return nil
+	}
+	pos := state.peleSeriesSeen[parent.seriesIndex]
+	state.peleSeriesSeen[parent.seriesIndex] = pos + 1
+	item := strconv.Itoa(pos + 1)
+	if n := len(meta.Labels); n > 0 {
+		item = meta.Labels[pos%n]
+	}
+	return seriesHooks(item, parent.seriesIndex, role)
+}
+
+// seriesHooks builds the shared mark hook trio. The index is zero-based to
+// match the chart engine's data-series slots and the --diagram-series-N names.
+func seriesHooks(item string, index int, role string) []svgAttr {
+	slot := (index - 1) % diagramSeriesCount
+	if slot < 0 {
+		slot = 0
+	}
+	return []svgAttr{
+		{Name: "data-item", Value: item},
+		{Name: "data-series", Value: strconv.Itoa(slot)},
+		{Name: "data-role", Value: role},
+	}
 }
 
 // peleItemRole returns the shared role name for a pele item, or "" when the
@@ -911,6 +992,47 @@ func fillColor(attrs []svgAttr) string {
 		return ""
 	}
 	return v
+}
+
+// nameVersionItems hooks the info diagram's single line of content. The version
+// text is its own identity, so the hook is the rendered text rather than a
+// counter, and the role follows pele's class the way every other role does.
+func nameVersionItems(body string) string {
+	var out strings.Builder
+	i := 0
+	for i < len(body) {
+		lt := strings.Index(body[i:], "<text")
+		if lt < 0 {
+			out.WriteString(body[i:])
+			break
+		}
+		lt += i
+		out.WriteString(body[i:lt])
+		end := tagEndFrom(body, lt)
+		if end < 0 {
+			out.WriteString(body[lt:])
+			break
+		}
+		name, attrs := parseOpenTag(body[lt:end])
+		if name != "text" || !hasClass(classTokens(attrs), "pele-version") || attrValue(attrs, "data-item") != "" {
+			out.WriteString(body[lt : end+1])
+			i = end + 1
+			continue
+		}
+		item := "version"
+		if closeRel := strings.Index(body[end+1:], "</text>"); closeRel >= 0 {
+			if text := strings.TrimSpace(innerTagRE.ReplaceAllString(body[end+1:end+1+closeRel], "")); text != "" {
+				item = html.UnescapeString(text)
+			}
+		}
+		attrs = setAttr(attrs, "data-item", html.EscapeString(item))
+		attrs = setAttr(attrs, "data-role", "version")
+		attrs = setClass(attrs, "svg-version")
+		out.WriteString(renderOpenTag(name, attrs))
+		out.WriteByte('>')
+		i = end + 1
+	}
+	return out.String()
 }
 
 // insertTitles gives stamped pele groups a <title> child so native zero-JS

@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM golang:1.26-alpine AS build
+FROM caddy:2.11.9-builder-alpine AS build
 
 RUN apk add --no-cache ca-certificates tzdata curl upx
 
@@ -18,7 +18,7 @@ RUN --mount=type=cache,id=gomod,target=/go/pkg/mod \
     go mod tidy
 
 RUN CGO_ENABLED=0 GOOS=linux \
-    go build -trimpath -ldflags="-s -w" -o /bin/goldmark-test .
+    go build -trimpath -ldflags="-s -w" -o /bin/goldmark-diagrams ./cmd/goldmark-diagrams
 
-ENTRYPOINT ["/bin/goldmark-test"]
+ENTRYPOINT ["/bin/goldmark-diagrams"]
 CMD [""]

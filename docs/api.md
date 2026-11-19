@@ -6,7 +6,7 @@ The public API lives in package `diagrams` (module
 ## Functions and constants
 
 ```go
-const ModuleVersion = "v0.3.0"
+const ModuleVersion = "v0.6.0"
 
 func DefaultCSS() string
 func SupportedLanguages() []string

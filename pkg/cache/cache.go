@@ -16,7 +16,7 @@ import (
 // ModuleVersion participates in the content-addressed cache key, so bumping it
 // invalidates every cached fragment after a renderer change. The public
 // diagrams package re-exports it.
-const ModuleVersion = "v0.5.0"
+const ModuleVersion = "v0.6.0"
 
 // Cache is a content-addressed store of normalized <figure> HTML fragments.
 type Cache interface {

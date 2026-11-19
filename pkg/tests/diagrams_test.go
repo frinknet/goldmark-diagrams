@@ -255,6 +255,18 @@ func TestEveryTypeCarriesTheSharedHooks(t *testing.T) {
 			source:  `{"type":"bar","labels":["Mon","Tue"],"series":[[1,2]]}`,
 			wantAll: []string{`data-item="Mon"`, `data-item="Tue"`, `data-series="0"`, `data-role="mark"`, `svg-mark`, `svg-series-0`},
 		},
+		{
+			name:    "mermaid-xychart",
+			lang:    "mermaid",
+			source:  "xychart-beta\n  x-axis [Jan, Feb]\n  y-axis 0 --> 10\n  bar [1, 2]\n  line [3, 4]",
+			wantAll: []string{`data-item="Jan"`, `data-item="Feb"`, `data-role="bar"`, `data-role="point"`, `data-role="line"`, `svg-bar`, `svg-point`, `svg-line`},
+		},
+		{
+			name:    "mermaid-info",
+			lang:    "mermaid",
+			source:  "info showInfo",
+			wantAll: []string{`data-item="Pele v`, `data-role="version"`, `svg-version`},
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -294,6 +306,32 @@ func TestChartsStampSeries(t *testing.T) {
 	}
 	if !strings.Contains(out, `svg-mark`) || !strings.Contains(out, `svg-series-0`) {
 		t.Errorf("chart marks are not styled by a standard class:\n%s", out)
+	}
+}
+
+func TestXYChartMarksAreNamedByCategory(t *testing.T) {
+	md := mustMarkdown(t)
+	source := "xychart-beta\n  x-axis [Jan, Feb, Mar]\n  y-axis \"Revenue\" 0 --> 100\n  bar [10, 40, 60]\n  line [20, 50, 80]"
+	out, err := convert(t, md, fence("mermaid", source))
+	if err != nil {
+		t.Fatalf("Convert: %v", err)
+	}
+	for _, want := range []string{
+		`data-item="Jan" data-series="0" data-role="bar"`,
+		`data-item="Mar" data-series="0" data-role="bar"`,
+		`data-item="Jan" data-series="1" data-role="point"`,
+		`data-item="Mar" data-series="1" data-role="point"`,
+		`data-item="line" data-series="1" data-role="line"`,
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("xychart hook missing %q\n%s", want, out)
+		}
+	}
+	marks := regexp.MustCompile(`data-item="([^"]*)" data-series="[^"]*" data-role="(?:bar|point)"`)
+	for _, m := range marks.FindAllStringSubmatch(out, -1) {
+		if _, err := strconv.Atoi(m[1]); err == nil {
+			t.Errorf("labelled xychart mark %q is still named by a counter", m[1])
+		}
 	}
 }
 

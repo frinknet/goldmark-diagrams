@@ -108,6 +108,8 @@ stylesheet can style all of them:
 | Diagram | Hooks and classes |
 | --- | --- |
 | `mermaid`, `mmd` | `data-item` + `data-role` using pele's own ids; the role follows pele's class (`node`, `edge`, `commit`, `task`, `lifeline`, `sankey-node`, ...) and is echoed as class `svg-<role>` |
+| Mermaid XY chart | `data-item` (the x-axis category) + `data-series="0..7"` + `data-role="bar"`, `"point"` or `"line"`; classes `svg-bar`, `svg-point`, `svg-line` |
+| Mermaid info | `data-item` (the rendered version text) + `data-role="version"`; class `svg-version` |
 | `d2`, `dot`, `plantuml` | `data-item` + `data-role="shape"` (shape label) or `data-role="connection"` (named by its endpoints, e.g. `orders->users`); classes `svg-shape`, `svg-connection` |
 | `chart`, `echarts` | `data-item` (the category label, or the 1-based category number when `labels` is absent) + `data-series="0..7"` + `data-role="mark"`; classes `svg-mark`, `svg-series-0..7` |
 | kanban | `data-column-id` + `data-role="column"`, `data-card-id` + `data-role="card"`; classes `svg-column`, `svg-card` |
@@ -139,6 +141,9 @@ So one override themes all of them, and the dark palette follows
 ```
 goldmark-diagrams/
 ├── diagrams.go              # public API only: options, New(), RenderStandalone(), DefaultCSS()
+├── e2e.sh                   # bash entry point: fixtures through the built container
+├── Dockerfile               # shared caddy-* build template for the container image
+├── cmd/goldmark-diagrams/   # stdin Markdown -> stdout HTML container entry point
 ├── assets/diagrams.css      # embedded reference CSS (//go:embed)
 ├── docs/                    # per-type guides plus the contract reference
 ├── testdata/                # input fixtures and golden HTML output
@@ -160,13 +165,23 @@ goldmark-diagrams/
 
 ## Development
 
-All Go work runs in a container so the host toolchain stays clean:
+The end-to-end suite runs through the built container image, not a Go test
+process. `e2e.sh` builds the image from the Dockerfile, feeds every fixture in
+`testdata/input` through it as a Markdown fence, and diffs the HTML against
+`testdata/golden`:
+
+```sh
+./e2e.sh                 # build the image and verify every fixture
+UPDATE_GOLDEN=1 ./e2e.sh # rewrite the golden fixtures from container output
+```
+
+The unit and API suite still runs in the builder image, never on the host:
 
 ```sh
 docker run --rm -v caddy-sf-mod:/mod -v "$PWD":/src -w /src \
   -e GOMODCACHE=/mod -e GOCACHE=/mod/gocache -e CGO_ENABLED=0 \
   caddy:2.11.9-builder-alpine \
-  sh -c 'gofmt -l . && go vet -buildvcs=false ./... && go test -buildvcs=false ./...'
+  sh -c 'go vet -buildvcs=false ./... && go test -buildvcs=false ./...'
 ```
 
 Requires Go 1.26+ (`pele-go` mandates it); the builder image ships Go 1.27.

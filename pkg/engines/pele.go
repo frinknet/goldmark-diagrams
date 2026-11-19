@@ -49,7 +49,62 @@ func renderPele(ctx context.Context, meta Meta, source string) (*RenderResult, e
 			w, h = vb[2], vb[3]
 		}
 	}
-	return &RenderResult{SVG: svg, Engine: EnginePele, Width: w, Height: h}, nil
+	return &RenderResult{SVG: svg, Engine: EnginePele, Labels: xychartLabels(source), Width: w, Height: h}, nil
+}
+
+// xychartLabels extracts the category names of an xychart-beta x-axis band so
+// the normalizer can name the bars and points pele draws without an id. A
+// numeric axis range has no categories and yields nil, leaving marks numbered.
+func xychartLabels(source string) []string {
+	isXY := false
+	for _, line := range strings.Split(source, "\n") {
+		if strings.HasPrefix(strings.TrimSpace(line), "xychart-beta") {
+			isXY = true
+			break
+		}
+	}
+	if !isXY {
+		return nil
+	}
+	for _, line := range strings.Split(source, "\n") {
+		axis := strings.TrimSpace(line)
+		if !strings.HasPrefix(axis, "x-axis") {
+			continue
+		}
+		open := strings.IndexByte(axis, '[')
+		closeAt := strings.LastIndexByte(axis, ']')
+		if open < 0 || closeAt <= open {
+			continue
+		}
+		return splitAxisLabels(axis[open+1 : closeAt])
+	}
+	return nil
+}
+
+// splitAxisLabels splits a bracket body on commas that are outside quotes, so a
+// quoted category may contain one.
+func splitAxisLabels(body string) []string {
+	var labels []string
+	var cur strings.Builder
+	var quote rune
+	for _, r := range body {
+		switch {
+		case quote != 0:
+			if r == quote {
+				quote = 0
+				continue
+			}
+			cur.WriteRune(r)
+		case r == '"' || r == '\'':
+			quote = r
+		case r == ',':
+			labels = append(labels, strings.TrimSpace(cur.String()))
+			cur.Reset()
+		default:
+			cur.WriteRune(r)
+		}
+	}
+	return append(labels, strings.TrimSpace(cur.String()))
 }
 
 var errNoSVG = &engineError{"pele produced no <svg> element"}
