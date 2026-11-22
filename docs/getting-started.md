@@ -12,7 +12,7 @@ Node, Java, or external-binary dependencies, so it builds with `CGO_ENABLED=0`.
 ## Install
 
 ```sh
-go get github.com/goldmark-diagrams/goldmark-diagrams
+go get github.com/frinknet/goldmark-diagrams
 ```
 
 ## Wire the extension into Goldmark
@@ -23,7 +23,7 @@ package main
 import (
 	"bytes"
 
-	diagrams "github.com/goldmark-diagrams/goldmark-diagrams"
+	diagrams "github.com/frinknet/goldmark-diagrams"
 	"github.com/yuin/goldmark"
 )
 

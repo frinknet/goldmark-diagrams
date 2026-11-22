@@ -13,7 +13,7 @@ import (
 	"strings"
 	"testing"
 
-	diagrams "github.com/goldmark-diagrams/goldmark-diagrams"
+	diagrams "github.com/frinknet/goldmark-diagrams"
 )
 
 // Every type in the Mermaid table of spec.md and every chart type the router

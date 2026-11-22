@@ -18,10 +18,10 @@ import (
 	_ "embed"
 	"time"
 
-	"github.com/goldmark-diagrams/goldmark-diagrams/pkg/cache"
-	"github.com/goldmark-diagrams/goldmark-diagrams/pkg/engines"
-	"github.com/goldmark-diagrams/goldmark-diagrams/pkg/extender"
-	"github.com/goldmark-diagrams/goldmark-diagrams/pkg/render"
+	"github.com/frinknet/goldmark-diagrams/pkg/cache"
+	"github.com/frinknet/goldmark-diagrams/pkg/engines"
+	"github.com/frinknet/goldmark-diagrams/pkg/extender"
+	"github.com/frinknet/goldmark-diagrams/pkg/render"
 	"github.com/yuin/goldmark"
 )
 

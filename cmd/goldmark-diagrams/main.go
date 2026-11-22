@@ -8,7 +8,7 @@ import (
 	"io"
 	"os"
 
-	diagrams "github.com/goldmark-diagrams/goldmark-diagrams"
+	diagrams "github.com/frinknet/goldmark-diagrams"
 	"github.com/yuin/goldmark"
 )
 

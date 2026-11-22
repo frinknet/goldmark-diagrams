@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/goldmark-diagrams/goldmark-diagrams/pkg/engines/transpilers"
+	"github.com/frinknet/goldmark-diagrams/pkg/engines/transpilers"
 )
 
 // Engine names reported on <figure data-engine>.

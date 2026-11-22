@@ -1,7 +1,7 @@
 # API
 
 The public API lives in package `diagrams` (module
-`github.com/goldmark-diagrams/goldmark-diagrams`).
+`github.com/frinknet/goldmark-diagrams`).
 
 ## Functions and constants
 

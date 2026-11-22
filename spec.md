@@ -17,7 +17,7 @@ Hard Engineering Rules
 2. Go Environment & Dependencies
 
 • Go Version: Go 1.26+ (required by pele-go)
-• Module path: github.com/goldmark-diagrams/goldmark-diagrams
+• Module path: github.com/frinknet/goldmark-diagrams
 • Allowed Dependencies:
 	• github.com/yuin/goldmark — Markdown AST & HTML rendering
 	• github.com/Broderick-Westrope/pele-go (importing _ "github.com/Broderick-Westrope/pele-go/all") — Pure-Go Mermaid engine supporting all 33 Mermaid diagram types (Kanban, Mindmap, Gantt, Venn, GitGraph, Flowchart, Sequence, ERD, Class, State, C4, Sankey, Radar, Timeline, Quadrant, etc.)

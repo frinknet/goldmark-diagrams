@@ -6,8 +6,8 @@ package render
 import (
 	"time"
 
-	"github.com/goldmark-diagrams/goldmark-diagrams/pkg/cache"
-	"github.com/goldmark-diagrams/goldmark-diagrams/pkg/engines"
+	"github.com/frinknet/goldmark-diagrams/pkg/cache"
+	"github.com/frinknet/goldmark-diagrams/pkg/engines"
 )
 
 // ErrorMode selects what happens when a diagram fails to compile.

@@ -11,8 +11,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/goldmark-diagrams/goldmark-diagrams/pkg/cache"
-	"github.com/goldmark-diagrams/goldmark-diagrams/pkg/engines"
+	"github.com/frinknet/goldmark-diagrams/pkg/cache"
+	"github.com/frinknet/goldmark-diagrams/pkg/engines"
 )
 
 // diagramSeriesCount is the number of --diagram-series-N slots the palette publishes.

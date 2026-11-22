@@ -8,8 +8,8 @@ import (
 	"context"
 	"strings"
 
-	"github.com/goldmark-diagrams/goldmark-diagrams/pkg/engines"
-	"github.com/goldmark-diagrams/goldmark-diagrams/pkg/render"
+	"github.com/frinknet/goldmark-diagrams/pkg/engines"
+	"github.com/frinknet/goldmark-diagrams/pkg/render"
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/parser"

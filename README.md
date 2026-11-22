@@ -49,7 +49,7 @@ import (
 	"bytes"
 
 	"github.com/yuin/goldmark"
-	diagrams "github.com/goldmark-diagrams/goldmark-diagrams"
+	diagrams "github.com/frinknet/goldmark-diagrams"
 )
 
 md := goldmark.New(goldmark.WithExtensions(diagrams.New()))

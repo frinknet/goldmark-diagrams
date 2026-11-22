@@ -13,8 +13,8 @@ import (
 	"sync"
 	"testing"
 
-	diagrams "github.com/goldmark-diagrams/goldmark-diagrams"
-	"github.com/goldmark-diagrams/goldmark-diagrams/pkg/engines"
+	diagrams "github.com/frinknet/goldmark-diagrams"
+	"github.com/frinknet/goldmark-diagrams/pkg/engines"
 	"github.com/yuin/goldmark"
 )
 
