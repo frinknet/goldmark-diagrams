@@ -1,4 +1,4 @@
-module github.com/goldmark-diagrams/goldmark-diagrams
+module github.com/frinknet/goldmark-diagrams
 
 go 1.26.0
 
